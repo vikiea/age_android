@@ -5,90 +5,54 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Implementation of [AgeEngine] that delegates to the native Go age library
+ * Placeholder implementation of [AgeEngine] that delegates to the native Go age library
  * via Gomobile bindings.
  *
- * The native library must be compiled with:
- *   gomobile bind -target=android -o age-engine.aar ./age-engine/src/main/go
+ * **This class will not work until the gomobile .aar is compiled.** The gomobile tool
+ * generates a Java/Kotlin bridge class (`Ageengine`) from the Go package, which should
+ * be used in place of these stubs once available.
  *
- * The resulting .aar should be placed in app/libs/ and referenced in app/build.gradle.kts.
+ * Build the native library with:
+ *   gomobile bind -target=android -o age.aar -javapkg=com.age.engine ./age-engine/src/main/go/
+ *
+ * Then place the resulting .aar in app/libs/ and reference it in app/build.gradle.kts.
  */
 class AgeEngineImpl : AgeEngine {
 
-    companion object {
-        init {
-            System.loadLibrary("ageengine")
-        }
+    private companion object {
+        private const val NOT_COMPILED_MSG =
+            "Age engine not compiled yet. Run: gomobile bind -target=android -o age.aar -javapkg=com.age.engine ./age-engine/src/main/go/"
     }
 
     override suspend fun generateKeyPair(): Pair<String, String> = withContext(Dispatchers.IO) {
-        val result = AgeengineBridge.generateKeyPair()
-        Pair(result.publicKey, result.privateKey)
+        throw UnsupportedOperationException(NOT_COMPILED_MSG)
     }
 
     override suspend fun encryptWithPassphrase(data: ByteArray, passphrase: String): ByteArray =
         withContext(Dispatchers.IO) {
-            AgeengineBridge.encryptWithPassphrase(data, passphrase)
+            throw UnsupportedOperationException(NOT_COMPILED_MSG)
         }
 
     override suspend fun encryptWithPublicKey(data: ByteArray, publicKey: String): ByteArray =
         withContext(Dispatchers.IO) {
-            AgeengineBridge.encryptWithPublicKey(data, publicKey)
+            throw UnsupportedOperationException(NOT_COMPILED_MSG)
         }
 
     override suspend fun decryptWithPassphrase(data: ByteArray, passphrase: String): ByteArray =
         withContext(Dispatchers.IO) {
-            AgeengineBridge.decryptWithPassphrase(data, passphrase)
+            throw UnsupportedOperationException(NOT_COMPILED_MSG)
         }
 
     override suspend fun decryptWithPrivateKey(data: ByteArray, privateKey: String): ByteArray =
         withContext(Dispatchers.IO) {
-            AgeengineBridge.decryptWithPrivateKey(data, privateKey)
+            throw UnsupportedOperationException(NOT_COMPILED_MSG)
         }
 
     override suspend fun readFile(path: String): ByteArray = withContext(Dispatchers.IO) {
-        AgeengineBridge.readFile(path)
+        throw UnsupportedOperationException(NOT_COMPILED_MSG)
     }
 
     override suspend fun writeFile(path: String, data: ByteArray) = withContext(Dispatchers.IO) {
-        AgeengineBridge.writeFile(path, data)
+        throw UnsupportedOperationException(NOT_COMPILED_MSG)
     }
 }
-
-/**
- * Gomobile-generated bridge object. This will be available after running:
- *   gomobile bind -target=android -o age-engine.aar ./age-engine/src/main/go
- *
- * Until then, this file will not compile. The bridge exposes the Go functions
- * as static methods on this object.
- */
-private object AgeengineBridge {
-    @JvmStatic
-    external fun generateKeyPair(): KeyPairResult
-
-    @JvmStatic
-    external fun encryptWithPassphrase(data: ByteArray, passphrase: String): ByteArray
-
-    @JvmStatic
-    external fun encryptWithPublicKey(data: ByteArray, publicKey: String): ByteArray
-
-    @JvmStatic
-    external fun decryptWithPassphrase(data: ByteArray, passphrase: String): ByteArray
-
-    @JvmStatic
-    external fun decryptWithPrivateKey(data: ByteArray, privateKey: String): ByteArray
-
-    @JvmStatic
-    external fun readFile(path: String): ByteArray
-
-    @JvmStatic
-    external fun writeFile(path: String, data: ByteArray)
-}
-
-/**
- * Data class representing a generated key pair from the native library.
- */
-data class KeyPairResult(
-    val publicKey: String,
-    val privateKey: String
-)
