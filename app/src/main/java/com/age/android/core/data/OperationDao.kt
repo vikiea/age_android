@@ -1,0 +1,23 @@
+package com.age.android.core.data
+
+import androidx.room.*
+import com.age.android.core.model.OperationRecord
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface OperationDao {
+    @Query("SELECT * FROM operation_records ORDER BY timestamp DESC")
+    fun getAllOperations(): Flow<List<OperationRecord>>
+
+    @Query("SELECT * FROM operation_records WHERE type = :type ORDER BY timestamp DESC")
+    fun getOperationsByType(type: String): Flow<List<OperationRecord>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOperation(record: OperationRecord): Long
+
+    @Update
+    suspend fun updateOperation(record: OperationRecord)
+
+    @Query("DELETE FROM operation_records")
+    suspend fun clearAll()
+}
