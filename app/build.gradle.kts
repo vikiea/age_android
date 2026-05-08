@@ -87,8 +87,8 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
 
-    // Age engine .aar
-    // implementation(files("libs/age-engine.aar"))
+    // Age engine (gomobile wrapper)
+    implementation(project(":age-engine"))
 
     // Testing
     testImplementation("junit:junit:4.13.2")
