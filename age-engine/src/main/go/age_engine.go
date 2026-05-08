@@ -1,0 +1,136 @@
+// Package ageengine provides a Go wrapper around the filippo.io/age encryption library.
+// It is designed to be compiled with gomobile for use on Android.
+package ageengine
+
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+
+	"filippo.io/age"
+	"filippo.io/age/armor"
+)
+
+// GenerateKeyPair generates a new X25519 key pair.
+// Returns (publicKey, privateKey, error).
+func GenerateKeyPair() (string, string, error) {
+	identity, err := age.GenerateX25519Identity()
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate key pair: %w", err)
+	}
+	return identity.Recipient().String(), identity.String(), nil
+}
+
+// EncryptWithPassphrase encrypts data using a scrypt passphrase with armor encoding.
+func EncryptWithPassphrase(data []byte, passphrase string) ([]byte, error) {
+	recipient, err := age.NewScryptRecipient(passphrase)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create scrypt recipient: %w", err)
+	}
+
+	var buf bytes.Buffer
+	aw := armor.NewWriter(&buf)
+	w, err := age.Encrypt(aw, recipient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create encrypt writer: %w", err)
+	}
+	if _, err := w.Write(data); err != nil {
+		return nil, fmt.Errorf("failed to write data: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close encrypt writer: %w", err)
+	}
+	if err := aw.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close armor writer: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+// EncryptWithPublicKey encrypts data using an X25519 public key with armor encoding.
+func EncryptWithPublicKey(data []byte, publicKey string) ([]byte, error) {
+	recipient, err := age.ParseX25519Recipient(publicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse public key: %w", err)
+	}
+
+	var buf bytes.Buffer
+	aw := armor.NewWriter(&buf)
+	w, err := age.Encrypt(aw, recipient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create encrypt writer: %w", err)
+	}
+	if _, err := w.Write(data); err != nil {
+		return nil, fmt.Errorf("failed to write data: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close encrypt writer: %w", err)
+	}
+	if err := aw.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close armor writer: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+// DecryptWithPassphrase decrypts data using a scrypt passphrase.
+// Auto-detects armored vs binary input.
+func DecryptWithPassphrase(data []byte, passphrase string) ([]byte, error) {
+	identity, err := age.NewScryptIdentity(passphrase)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create scrypt identity: %w", err)
+	}
+
+	return decrypt(data, identity)
+}
+
+// DecryptWithPrivateKey decrypts data using an X25519 private key.
+// Auto-detects armored vs binary input.
+func DecryptWithPrivateKey(data []byte, privateKey string) ([]byte, error) {
+	identity, err := age.ParseX25519Identity(privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse private key: %w", err)
+	}
+
+	return decrypt(data, identity)
+}
+
+// decrypt handles auto-detection of armored vs binary input and decrypts using the provided identity.
+func decrypt(data []byte, identity age.Identity) ([]byte, error) {
+	src := bytes.NewReader(data)
+
+	// Try to detect armor by checking for the armor header
+	var r io.Reader = src
+	if strings.HasPrefix(string(data), "-----BEGIN AGE ENCRYPTED FILE-----") {
+		ar := armor.NewReader(src)
+		r = ar
+	}
+
+	out, err := age.Decrypt(r, identity)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt: %w", err)
+	}
+
+	result, err := io.ReadAll(out)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read decrypted data: %w", err)
+	}
+	return result, nil
+}
+
+// ReadFile reads the contents of a file at the given path.
+func ReadFile(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file %s: %w", path, err)
+	}
+	return data, nil
+}
+
+// WriteFile writes data to a file at the given path.
+func WriteFile(path string, data []byte) error {
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write file %s: %w", path, err)
+	}
+	return nil
+}

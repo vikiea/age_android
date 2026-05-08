@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "AgeAndroid"
 include(":app")
+include(":age-engine")
