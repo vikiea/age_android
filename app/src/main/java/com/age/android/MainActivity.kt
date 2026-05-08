@@ -1,16 +1,11 @@
 package com.age.android
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import com.age.android.navigation.AppNavigation
 import com.age.android.ui.theme.AgeAndroidTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -21,29 +16,21 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AgeAndroidTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    Greeting("Age")
-                }
+                AppNavigation()
             }
         }
+        handleShareIntent(intent)
     }
-}
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleShareIntent(intent)
+    }
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    AgeAndroidTheme {
-        Greeting("Age")
+    private fun handleShareIntent(intent: Intent?) {
+        // Share intent handling will be wired to specific screens in future
+        if (intent?.action == Intent.ACTION_SEND) {
+            // Files shared to the app will be handled by the active screen
+        }
     }
 }
