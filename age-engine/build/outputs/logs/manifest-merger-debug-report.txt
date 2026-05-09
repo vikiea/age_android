@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /Users/qinfuling/www/github/person/age_android/age-engine/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest17853153933200435437.xml:2:13-83
+INJECTED from /Users/qinfuling/www/github/person/age_android/age-engine/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest17853153933200435437.xml:2:13-83
+	package
+		INJECTED from /Users/qinfuling/www/github/person/age_android/age-engine/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest17853153933200435437.xml
+	xmlns:android
+		ADDED from /Users/qinfuling/www/github/person/age_android/age-engine/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest17853153933200435437.xml:2:23-81
+uses-sdk
+INJECTED from /Users/qinfuling/www/github/person/age_android/age-engine/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest17853153933200435437.xml reason: use-sdk injection requested
+INJECTED from /Users/qinfuling/www/github/person/age_android/age-engine/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest17853153933200435437.xml
+INJECTED from /Users/qinfuling/www/github/person/age_android/age-engine/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest17853153933200435437.xml
+	android:targetSdkVersion
+		INJECTED from /Users/qinfuling/www/github/person/age_android/age-engine/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest17853153933200435437.xml
+	android:minSdkVersion
+		INJECTED from /Users/qinfuling/www/github/person/age_android/age-engine/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest17853153933200435437.xml

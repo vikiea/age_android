@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.age.android.core.model.EncryptMode
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EncryptScreen(viewModel: EncryptViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
