@@ -31,7 +31,7 @@ func GenerateKeyPair() (*KeyPairResult, error) {
 	}, nil
 }
 
-// EncryptWithPassphrase encrypts data using a scrypt passphrase with armor encoding.
+// EncryptWithPassphrase encrypts data using a scrypt passphrase (binary output).
 func EncryptWithPassphrase(data []byte, passphrase string) ([]byte, error) {
 	recipient, err := age.NewScryptRecipient(passphrase)
 	if err != nil {
@@ -39,8 +39,7 @@ func EncryptWithPassphrase(data []byte, passphrase string) ([]byte, error) {
 	}
 
 	var buf bytes.Buffer
-	aw := armor.NewWriter(&buf)
-	w, err := age.Encrypt(aw, recipient)
+	w, err := age.Encrypt(&buf, recipient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create encrypt writer: %w", err)
 	}
@@ -50,13 +49,10 @@ func EncryptWithPassphrase(data []byte, passphrase string) ([]byte, error) {
 	if err := w.Close(); err != nil {
 		return nil, fmt.Errorf("failed to close encrypt writer: %w", err)
 	}
-	if err := aw.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close armor writer: %w", err)
-	}
 	return buf.Bytes(), nil
 }
 
-// EncryptWithPublicKey encrypts data using an X25519 public key with armor encoding.
+// EncryptWithPublicKey encrypts data using an X25519 public key (binary output).
 func EncryptWithPublicKey(data []byte, publicKey string) ([]byte, error) {
 	recipient, err := age.ParseX25519Recipient(publicKey)
 	if err != nil {
@@ -64,8 +60,7 @@ func EncryptWithPublicKey(data []byte, publicKey string) ([]byte, error) {
 	}
 
 	var buf bytes.Buffer
-	aw := armor.NewWriter(&buf)
-	w, err := age.Encrypt(aw, recipient)
+	w, err := age.Encrypt(&buf, recipient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create encrypt writer: %w", err)
 	}
@@ -74,9 +69,6 @@ func EncryptWithPublicKey(data []byte, publicKey string) ([]byte, error) {
 	}
 	if err := w.Close(); err != nil {
 		return nil, fmt.Errorf("failed to close encrypt writer: %w", err)
-	}
-	if err := aw.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close armor writer: %w", err)
 	}
 	return buf.Bytes(), nil
 }

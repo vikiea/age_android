@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <external-files-path
+        name="age_output"
+        path="age_output/" />
+    <cache-path
+        name="age_temp"
+        path="age_temp/" />
+</paths>

@@ -22,6 +22,7 @@ import com.age.android.feature.encrypt.EncryptScreen
 import com.age.android.feature.history.HistoryScreen
 import com.age.android.feature.keys.KeyDetailScreen
 import com.age.android.feature.keys.KeysScreen
+import com.age.android.feature.settings.SettingsScreen
 
 enum class TopLevelRoute(val route: String, val label: String, val icon: ImageVector) {
     ENCRYPT("encrypt", "加密", Icons.Default.Lock),
@@ -65,8 +66,12 @@ fun AppNavigation() {
             startDestination = TopLevelRoute.ENCRYPT.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(TopLevelRoute.ENCRYPT.route) { EncryptScreen() }
-            composable(TopLevelRoute.DECRYPT.route) { DecryptScreen() }
+            composable(TopLevelRoute.ENCRYPT.route) {
+                EncryptScreen(onNavigateToSettings = { navController.navigate("settings") })
+            }
+            composable(TopLevelRoute.DECRYPT.route) {
+                DecryptScreen(onNavigateToSettings = { navController.navigate("settings") })
+            }
             composable(TopLevelRoute.KEYS.route) {
                 KeysScreen(onKeyClick = { keyId -> navController.navigate("key_detail/$keyId") })
             }
@@ -77,6 +82,9 @@ fun AppNavigation() {
             ) { backStackEntry ->
                 val keyId = backStackEntry.arguments?.getLong("keyId") ?: 0L
                 KeyDetailScreen(keyId = keyId, onBack = { navController.popBackStack() })
+            }
+            composable("settings") {
+                SettingsScreen(onBack = { navController.popBackStack() })
             }
         }
     }

@@ -3,6 +3,7 @@ package com.age.android.feature.history
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material3.*
@@ -27,19 +28,17 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
         operations
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("操作历史") },
-                actions = {
-                    IconButton(onClick = { viewModel.showClearDialog() }) {
-                        Icon(Icons.Default.DeleteSweep, contentDescription = "清除")
-                    }
+    Column(modifier = Modifier.fillMaxSize()) {
+        TopAppBar(
+            title = { Text("操作历史") },
+            actions = {
+                IconButton(onClick = { viewModel.showClearDialog() }) {
+                    Icon(Icons.Default.DeleteSweep, contentDescription = "清除")
                 }
-            )
-        }
-    ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+            }
+        )
+
+        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = uiState.filterType == null, onClick = { viewModel.setFilter(null) }, label = { Text("全部") })
                 FilterChip(selected = uiState.filterType == OperationType.ENCRYPT, onClick = { viewModel.setFilter(OperationType.ENCRYPT) }, label = { Text("加密") })
@@ -53,7 +52,10 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(filteredOps) { op ->
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
                             ListItem(
                                 headlineContent = { Text("${if (op.type == OperationType.ENCRYPT) "加密" else "解密"} - ${op.mode.name}") },
                                 supportingContent = {

@@ -3,6 +3,8 @@ package com.age.android.feature.encrypt
 import com.age.android.core.age.AgeEngine
 import com.age.android.core.data.KeyRepository
 import com.age.android.core.data.OperationRepository
+import com.age.android.core.data.DuplicateStrategy
+import com.age.android.core.data.SettingsDataStore
 import com.age.android.core.model.EncryptMode
 import com.age.android.core.util.FileHelper
 import io.mockk.*
@@ -21,6 +23,7 @@ class EncryptViewModelTest {
     private lateinit var keyRepository: KeyRepository
     private lateinit var operationRepository: OperationRepository
     private lateinit var fileHelper: FileHelper
+    private lateinit var settingsDataStore: SettingsDataStore
     private lateinit var viewModel: EncryptViewModel
     private val testDispatcher = StandardTestDispatcher()
 
@@ -31,7 +34,8 @@ class EncryptViewModelTest {
         keyRepository = mockk { every { getAllKeys() } returns flowOf(emptyList()) }
         operationRepository = mockk { coEvery { insertOperation(any()) } returns 1L; coEvery { updateOperation(any()) } just Runs }
         fileHelper = mockk()
-        viewModel = EncryptViewModel(ageEngine, keyRepository, operationRepository, fileHelper)
+        settingsDataStore = mockk { every { outputDirUri } returns flowOf(null); every { duplicateStrategy } returns flowOf(DuplicateStrategy.RENAME) }
+        viewModel = EncryptViewModel(ageEngine, keyRepository, operationRepository, fileHelper, settingsDataStore)
     }
 
     @After

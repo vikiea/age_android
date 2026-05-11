@@ -3,6 +3,8 @@ package com.age.android.feature.decrypt
 import com.age.android.core.age.AgeEngine
 import com.age.android.core.data.KeyRepository
 import com.age.android.core.data.OperationRepository
+import com.age.android.core.data.DuplicateStrategy
+import com.age.android.core.data.SettingsDataStore
 import com.age.android.core.util.FileHelper
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +31,8 @@ class DecryptViewModelTest {
             coEvery { updateOperation(any()) } just Runs
         }
         val fileHelper = mockk<FileHelper>()
-        viewModel = DecryptViewModel(ageEngine, keyRepository, operationRepository, fileHelper)
+        val settingsDataStore = mockk<SettingsDataStore> { every { outputDirUri } returns flowOf(null); every { duplicateStrategy } returns flowOf(DuplicateStrategy.RENAME) }
+        viewModel = DecryptViewModel(ageEngine, keyRepository, operationRepository, fileHelper, settingsDataStore)
     }
 
     @After

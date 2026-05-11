@@ -14,6 +14,7 @@ data class KeyEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val publicKey: String,
+    val privateKey: String? = null,
     val keyType: KeyType,
     val hasPrivateKey: Boolean,
     val keystoreAlias: String? = null,

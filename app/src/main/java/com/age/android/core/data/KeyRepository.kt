@@ -24,6 +24,7 @@ class KeyRepository @Inject constructor(
         val key = KeyEntry(
             name = name,
             publicKey = publicKey,
+            privateKey = privateKey,
             keyType = KeyType.AGE_KEY,
             hasPrivateKey = privateKey != null
         )

@@ -6,7 +6,7 @@ import androidx.room.TypeConverters
 import com.age.android.core.model.KeyEntry
 import com.age.android.core.model.OperationRecord
 
-@Database(entities = [KeyEntry::class, OperationRecord::class], version = 1, exportSchema = false)
+@Database(entities = [KeyEntry::class, OperationRecord::class], version = 2, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun keyDao(): KeyDao
