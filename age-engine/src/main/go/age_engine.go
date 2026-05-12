@@ -1,3 +1,7 @@
+// Copyright (c) 2026 vikiea <vikiea@users.noreply.github.com>
+// This code is released under the MIT License.
+// See LICENSE for details.
+
 // Package ageengine provides a Go wrapper around the filippo.io/age encryption library.
 // It is designed to be compiled with gomobile for use on Android.
 package ageengine

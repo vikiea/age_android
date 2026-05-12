@@ -87,6 +87,12 @@ Run `make help` for all available commands.
 
 All files are tar-packed before encryption to hide original file extensions.
 
+## Privacy
+
+Age Android does not collect, transmit, or store any user data. All operations are performed locally on your device.
+
+[Privacy Policy](https://vikiea.github.io/age_android/privacy-policy.html)
+
 ## License
 
 [MIT](LICENSE)

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 vikiea <vikiea@users.noreply.github.com>
+ * This code is released under the MIT License.
+ * See LICENSE for details.
+ */
 package com.age.android.feature.settings
 
 import androidx.activity.compose.rememberLauncherForActivityResult

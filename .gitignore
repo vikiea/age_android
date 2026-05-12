@@ -1,6 +1,10 @@
 .superpowers/
 .claude/
 
+# Signing
+*.jks
+*.keystore
+
 # Android
 *.iml
 .gradle
@@ -15,4 +19,6 @@ local.properties
 /app/build
 /app/libs
 /age-engine/build
+/age-engine/libs/age-engine-classes.jar
+/age-engine/src/main/jniLibs
 local.properties
