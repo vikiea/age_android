@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -28,6 +29,7 @@ class SettingsDataStore @Inject constructor(
     private val decryptUsePassphraseKey = stringPreferencesKey("decrypt_use_passphrase")
     private val selectedPublicKeyKey = stringPreferencesKey("selected_public_key")
     private val selectedPrivateKeyKey = stringPreferencesKey("selected_private_key")
+    private val compressEnabledKey = booleanPreferencesKey("compress_enabled")
 
     @Volatile
     private var cachedOutputDirUri: String? = null
@@ -133,6 +135,22 @@ class SettingsDataStore @Inject constructor(
     suspend fun setSelectedPrivateKey(value: String) {
         context.dataStore.edit { preferences ->
             preferences[selectedPrivateKeyKey] = value
+        }
+    }
+
+    suspend fun getCompressEnabledOnce(): Boolean {
+        return context.dataStore.data.map { preferences ->
+            preferences[compressEnabledKey] != false
+        }.first()
+    }
+
+    val compressEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[compressEnabledKey] != false
+    }
+
+    suspend fun setCompressEnabled(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[compressEnabledKey] = value
         }
     }
 }

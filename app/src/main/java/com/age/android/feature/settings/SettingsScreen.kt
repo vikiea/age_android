@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -24,6 +25,7 @@ fun SettingsScreen(
 ) {
     val duplicateStrategy by viewModel.duplicateStrategy.collectAsState()
     val outputDirUri by viewModel.outputDirUri.collectAsState()
+    val compressEnabled by viewModel.compressEnabled.collectAsState()
 
     val dirPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         viewModel.setOutputDirUri(uri)
@@ -109,6 +111,31 @@ fun SettingsScreen(
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("打包时压缩", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            text = if (compressEnabled) "tar.gz 格式，体积更小但速度较慢" else "tar 格式，速度更快但体积更大",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = compressEnabled,
+                        onCheckedChange = { viewModel.setCompressEnabled(it) }
                     )
                 }
             }

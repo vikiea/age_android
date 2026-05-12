@@ -3,10 +3,13 @@
 package ageengine
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"filippo.io/age"
 	"filippo.io/age/armor"
@@ -133,4 +136,264 @@ func WriteFile(path string, data []byte) error {
 		return fmt.Errorf("failed to write file %s: %w", path, err)
 	}
 	return nil
+}
+
+// EncryptStreamToFile streams encryption from inputPath to outputPath using a passphrase.
+// Memory usage is minimal (only pipe buffers, not the entire file).
+func EncryptStreamToFile(inputPath, outputPath, passphrase string) error {
+	recipient, err := age.NewScryptRecipient(passphrase)
+	if err != nil {
+		return fmt.Errorf("failed to create scrypt recipient: %w", err)
+	}
+
+	outFile, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer outFile.Close()
+
+	w, err := age.Encrypt(outFile, recipient)
+	if err != nil {
+		return fmt.Errorf("failed to create encrypt writer: %w", err)
+	}
+
+	inFile, err := os.Open(inputPath)
+	if err != nil {
+		return fmt.Errorf("failed to open input file: %w", err)
+	}
+	defer inFile.Close()
+
+	if _, err := io.Copy(w, inFile); err != nil {
+		return fmt.Errorf("failed to encrypt data: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("failed to close encrypt writer: %w", err)
+	}
+	return nil
+}
+
+// EncryptStreamToFileWithKey streams encryption from inputPath to outputPath using a public key.
+func EncryptStreamToFileWithKey(inputPath, outputPath, publicKey string) error {
+	recipient, err := age.ParseX25519Recipient(publicKey)
+	if err != nil {
+		return fmt.Errorf("failed to parse public key: %w", err)
+	}
+
+	outFile, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer outFile.Close()
+
+	w, err := age.Encrypt(outFile, recipient)
+	if err != nil {
+		return fmt.Errorf("failed to create encrypt writer: %w", err)
+	}
+
+	inFile, err := os.Open(inputPath)
+	if err != nil {
+		return fmt.Errorf("failed to open input file: %w", err)
+	}
+	defer inFile.Close()
+
+	if _, err := io.Copy(w, inFile); err != nil {
+		return fmt.Errorf("failed to encrypt data: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("failed to close encrypt writer: %w", err)
+	}
+	return nil
+}
+
+// DecryptStreamToFile streams decryption from inputPath to outputPath using a passphrase.
+func DecryptStreamToFile(inputPath, outputPath, passphrase string) error {
+	identity, err := age.NewScryptIdentity(passphrase)
+	if err != nil {
+		return fmt.Errorf("failed to create scrypt identity: %w", err)
+	}
+	return decryptStream(inputPath, outputPath, identity)
+}
+
+// DecryptStreamToFileWithKey streams decryption from inputPath to outputPath using a private key.
+func DecryptStreamToFileWithKey(inputPath, outputPath, privateKey string) error {
+	identity, err := age.ParseX25519Identity(privateKey)
+	if err != nil {
+		return fmt.Errorf("failed to parse private key: %w", err)
+	}
+	return decryptStream(inputPath, outputPath, identity)
+}
+
+func decryptStream(inputPath, outputPath string, identity age.Identity) error {
+	inFile, err := os.Open(inputPath)
+	if err != nil {
+		return fmt.Errorf("failed to open input file: %w", err)
+	}
+	defer inFile.Close()
+
+	// Peek first bytes to detect armor
+	header := make([]byte, 35)
+	n, _ := io.ReadFull(inFile, header)
+	inFile.Seek(0, io.SeekStart)
+
+	var r io.Reader = inFile
+	if n >= 35 && bytes.HasPrefix(header[:n], []byte("-----BEGIN AGE ENCRYPTED FILE-----")) {
+		ar := armor.NewReader(inFile)
+		r = ar
+	}
+
+	out, err := age.Decrypt(r, identity)
+	if err != nil {
+		return fmt.Errorf("failed to decrypt: %w", err)
+	}
+
+	outFile, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer outFile.Close()
+
+	if _, err := io.Copy(outFile, out); err != nil {
+		return fmt.Errorf("failed to write decrypted data: %w", err)
+	}
+	return nil
+}
+
+// TarFiles creates a tar archive from the given file paths.
+// fileNames[i] is the name to use in the archive for filePaths[i].
+// Streams with minimal memory usage.
+func TarFiles(filePaths []string, fileNames []string, outputPath string) error {
+	outFile, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer outFile.Close()
+
+	tw := tar.NewWriter(outFile)
+	defer tw.Close()
+
+	for i, path := range filePaths {
+		info, err := os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("failed to stat %s: %w", path, err)
+		}
+
+		header, err := tar.FileInfoHeader(info, "")
+		if err != nil {
+			return fmt.Errorf("failed to create tar header: %w", err)
+		}
+		header.Name = fileNames[i]
+
+		if err := tw.WriteHeader(header); err != nil {
+			return fmt.Errorf("failed to write tar header: %w", err)
+		}
+
+		f, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("failed to open %s: %w", path, err)
+		}
+		if _, err := io.Copy(tw, f); err != nil {
+			f.Close()
+			return fmt.Errorf("failed to write tar data: %w", err)
+		}
+		f.Close()
+	}
+	return nil
+}
+
+// TarGzipFiles creates a tar.gz archive from the given file paths.
+// Streams with minimal memory usage (gzip internal buffer ~32KB).
+func TarGzipFiles(filePaths []string, fileNames []string, outputPath string) error {
+	outFile, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer outFile.Close()
+
+	gw := gzip.NewWriter(outFile)
+	defer gw.Close()
+
+	tw := tar.NewWriter(gw)
+	defer tw.Close()
+
+	for i, path := range filePaths {
+		info, err := os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("failed to stat %s: %w", path, err)
+		}
+
+		header, err := tar.FileInfoHeader(info, "")
+		if err != nil {
+			return fmt.Errorf("failed to create tar header: %w", err)
+		}
+		header.Name = fileNames[i]
+
+		if err := tw.WriteHeader(header); err != nil {
+			return fmt.Errorf("failed to write tar header: %w", err)
+		}
+
+		f, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("failed to open %s: %w", path, err)
+		}
+		if _, err := io.Copy(tw, f); err != nil {
+			f.Close()
+			return fmt.Errorf("failed to write tar data: %w", err)
+		}
+		f.Close()
+	}
+	return nil
+}
+
+// TarSingleFile creates a tar archive containing a single file.
+func TarSingleFile(filePath string, entryName string, outputPath string) error {
+	outFile, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer outFile.Close()
+
+	tw := tar.NewWriter(outFile)
+	defer tw.Close()
+
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to stat %s: %w", filePath, err)
+	}
+
+	header, err := tar.FileInfoHeader(info, "")
+	if err != nil {
+		return fmt.Errorf("failed to create tar header: %w", err)
+	}
+	header.Name = entryName
+
+	if err := tw.WriteHeader(header); err != nil {
+		return fmt.Errorf("failed to write tar header: %w", err)
+	}
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to open %s: %w", filePath, err)
+	}
+	defer f.Close()
+
+	if _, err := io.Copy(tw, f); err != nil {
+		return fmt.Errorf("failed to write tar data: %w", err)
+	}
+	return nil
+}
+
+// TarFilesDelim creates a tar archive from newline-delimited file paths and names.
+// gomobile cannot export []string, so we use "\n" as delimiter.
+func TarFilesDelim(filePathsDelim string, fileNamesDelim string, outputPath string) error {
+	paths := strings.Split(filePathsDelim, "\n")
+	names := strings.Split(fileNamesDelim, "\n")
+	return TarFiles(paths, names, outputPath)
+}
+
+// TarGzipFilesDelim creates a tar.gz archive from newline-delimited file paths and names.
+// gomobile cannot export []string, so we use "\n" as delimiter.
+func TarGzipFilesDelim(filePathsDelim string, fileNamesDelim string, outputPath string) error {
+	paths := strings.Split(filePathsDelim, "\n")
+	names := strings.Split(fileNamesDelim, "\n")
+	return TarGzipFiles(paths, names, outputPath)
 }

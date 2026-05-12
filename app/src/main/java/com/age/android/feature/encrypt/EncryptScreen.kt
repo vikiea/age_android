@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
@@ -37,6 +38,10 @@ fun EncryptScreen(
         if (uris.isNotEmpty()) viewModel.addFiles(uris)
     }
 
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) viewModel.addFilesFromFolder(uri)
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text("加密") },
@@ -60,10 +65,17 @@ fun EncryptScreen(
                 FilterChip(selected = uiState.mode == EncryptMode.SEPARATE, onClick = { viewModel.setMode(EncryptMode.SEPARATE) }, label = { Text("分别加密") })
             }
 
-            OutlinedButton(onClick = { filePicker.launch(arrayOf("*/*")) }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("添加文件")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { filePicker.launch(arrayOf("*/*")) }, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("添加文件")
+                }
+                OutlinedButton(onClick = { folderPicker.launch(null) }, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.FolderOpen, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("选择文件夹")
+                }
             }
 
             if (uiState.files.isNotEmpty()) {
@@ -72,7 +84,12 @@ fun EncryptScreen(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text("已选文件 (${uiState.files.size})", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(bottom = 4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
+                            Text("已选文件 (${uiState.files.size})", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { viewModel.clearFiles() }, enabled = !uiState.isProcessing, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
+                                Text("清空", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
                         uiState.files.forEachIndexed { index, file ->
                             Row(
                                 modifier = Modifier
@@ -82,7 +99,7 @@ fun EncryptScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(file.name, maxLines = 1, modifier = Modifier.weight(1f))
-                                IconButton(onClick = { viewModel.removeFile(index) }, modifier = Modifier.size(32.dp)) {
+                                IconButton(onClick = { viewModel.removeFile(index) }, enabled = !uiState.isProcessing, modifier = Modifier.size(32.dp)) {
                                     Icon(Icons.Default.Close, contentDescription = "移除", modifier = Modifier.size(18.dp))
                                 }
                             }
@@ -129,19 +146,31 @@ fun EncryptScreen(
             }
 
             if (uiState.mode == EncryptMode.BATCH_PACK) {
-                OutlinedTextField(value = uiState.outputFileName, onValueChange = { viewModel.setOutputFileName(it) }, label = { Text("输出文件名") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(
+                    value = uiState.outputFileBaseName,
+                    onValueChange = { viewModel.setOutputFileBaseName(it) },
+                    label = { Text("输出文件名") },
+                    suffix = { Text(if (uiState.compressEnabled) ".tar.gz.age" else ".tar.age") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
             }
 
             Spacer(Modifier.height(8.dp))
         }
 
-        // Bottom section: always visible
+        // Bottom section: fixed at bottom
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             HorizontalDivider()
 
             if (uiState.isProcessing) {
                 LinearProgressIndicator(progress = { uiState.progress }, modifier = Modifier.fillMaxWidth())
-                Text("处理中: ${uiState.processedCount}/${uiState.totalCount} (成功: ${uiState.successCount}, 失败: ${uiState.failCount})")
+                val statusText = if (uiState.phase.isNotEmpty()) {
+                    "${uiState.phase} ${uiState.processedCount}/${uiState.totalCount}"
+                } else {
+                    "处理中: ${uiState.processedCount}/${uiState.totalCount} (成功: ${uiState.successCount}, 失败: ${uiState.failCount})"
+                }
+                Text(statusText)
             }
 
             uiState.result?.let {
@@ -190,7 +219,7 @@ fun EncryptScreen(
                 }
             }
 
-            Button(onClick = { viewModel.startEncrypt() }, modifier = Modifier.fillMaxWidth(), enabled = !uiState.isProcessing) { Text("开始加密") }
+            Button(onClick = { viewModel.startEncrypt() }, modifier = Modifier.fillMaxWidth(), enabled = !uiState.isProcessing && uiState.result == null) { Text("开始加密") }
         }
     }
 }

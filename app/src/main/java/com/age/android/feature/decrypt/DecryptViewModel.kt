@@ -13,10 +13,7 @@ import com.age.android.core.util.FileHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.yield
 import java.io.File
 import javax.inject.Inject
 
@@ -66,12 +63,25 @@ class DecryptViewModel @Inject constructor(
     }
 
     fun addFiles(uris: List<Uri>) {
-        val newFiles = uris.map { uri -> DecryptFileItem(uri, fileHelper.getFileName(uri)) }
+        val existingUris = _uiState.value.files.map { it.uri }.toSet()
+        val newFiles = uris.filter { it !in existingUris }.map { uri -> DecryptFileItem(uri, fileHelper.getFileName(uri)) }
+        if (newFiles.isEmpty()) return
+        _uiState.update { it.copy(files = it.files + newFiles) }
+    }
+
+    fun addFilesFromFolder(dirUri: Uri) {
+        val dirFiles = fileHelper.listFilesInDir(dirUri)
+        val existingUris = _uiState.value.files.map { it.uri }.toSet()
+        val newFiles = dirFiles.filter { it.uri !in existingUris }.map { DecryptFileItem(it.uri, it.name) }
         _uiState.update { it.copy(files = it.files + newFiles) }
     }
 
     fun removeFile(index: Int) {
         _uiState.update { it.copy(files = it.files.toMutableList().apply { removeAt(index) }) }
+    }
+
+    fun clearFiles() {
+        _uiState.update { it.copy(files = emptyList()) }
     }
 
     fun setUsePassphrase(value: Boolean) {
@@ -143,7 +153,7 @@ class DecryptViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isProcessing = true, error = null, result = null, progress = 0f, totalCount = state.files.size, outputFiles = emptyList(), outputDir = null) }
+            _uiState.update { it.copy(isProcessing = true, error = null, result = null, progress = 0f, processedCount = 0, totalCount = state.files.size, successCount = 0, failCount = 0, outputFiles = emptyList(), outputDir = null) }
 
             val record = OperationRecord(
                 type = OperationType.DECRYPT,
@@ -156,74 +166,74 @@ class DecryptViewModel @Inject constructor(
             val recordId = operationRepository.insertOperation(record)
 
             try {
-                val semaphore = Semaphore(4)
                 var success = 0
                 var fail = 0
                 val outputNames = mutableListOf<String>()
                 val strategy = settingsDataStore.getDuplicateStrategyOnce()
 
-                val jobs = state.files.map { file ->
-                    viewModelScope.async {
-                        semaphore.withPermit {
-                            var tempFile: java.io.File? = null
+                for ((index, file) in state.files.withIndex()) {
+                    var sourceTemp: java.io.File? = null
+                    val decryptedTemp = java.io.File(fileHelper.getCacheDir(), "dec_out_${System.currentTimeMillis()}.tmp")
+                    try {
+                        // Stream URI to temp file (no memory load)
+                        sourceTemp = fileHelper.streamUriToTemp(file.uri, "dec_src")
+
+                        // Stream decrypt
+                        if (state.usePassphrase) {
+                            ageEngine.decryptStreamToFile(sourceTemp.absolutePath, decryptedTemp.absolutePath, state.passphrase)
+                        } else {
+                            ageEngine.decryptStreamToFileWithKey(sourceTemp.absolutePath, decryptedTemp.absolutePath, state.selectedPrivateKey)
+                        }
+                        sourceTemp?.let { fileHelper.deleteTempFile(it) }
+
+                        // Try streaming untar (tar-only format, no gzip)
+                        var isTar = false
+                        try {
+                            fileHelper.untarStreaming(decryptedTemp) { entryName, entryStream, entrySize ->
+                                writeStreamToFile(entryName, entryStream, entrySize, strategy)
+                                outputNames.add(entryName)
+                            }
+                            isTar = true
+                            success++
+                        } catch (_: Exception) {
+                            // Not a plain tar, try tar.gz
+                        }
+
+                        if (!isTar) {
                             try {
-                                val data = fileHelper.readUri(file.uri) ?: throw Exception("无法读取: ${file.name}")
-                                val decrypted = if (state.usePassphrase) {
-                                    ageEngine.decryptWithPassphrase(data, state.passphrase)
-                                } else {
-                                    ageEngine.decryptWithPrivateKey(data, state.selectedPrivateKey)
+                                fileHelper.untarGzipStreaming(decryptedTemp) { entryName, entryStream, entrySize ->
+                                    writeStreamToFile(entryName, entryStream, entrySize, strategy)
+                                    outputNames.add(entryName)
                                 }
-
-                                // Write decrypted data to temp file for streaming decompression
-                                tempFile = java.io.File(fileHelper.getCacheDir(), "decrypt_${System.currentTimeMillis()}")
-                                tempFile.writeBytes(decrypted)
-
-                                // Try untar+gzip (batch archive format)
-                                val untarred = try {
-                                    fileHelper.untarGzipFromTemp(tempFile)
-                                } catch (_: Exception) {
-                                    null
-                                }
-
-                                if (untarred != null && untarred.isNotEmpty()) {
-                                    // Batch archive: write each extracted file
-                                    writeTarEntries(untarred, strategy)
-                                    synchronized(this) {
-                                        success++
-                                        outputNames.addAll(untarred.map { it.name })
-                                        _uiState.update { it.copy(processedCount = success + fail, successCount = success, progress = (success + fail).toFloat() / state.files.size) }
-                                    }
-                                } else {
-                                    // Try gunzip (single file, gzip compressed)
-                                    val decompressed = try {
-                                        fileHelper.gunzipFromTemp(tempFile)
-                                    } catch (_: Exception) {
-                                        // Not gzipped, use raw decrypted data
-                                        decrypted
-                                    }
-                                    // Single file: strip .age suffix and write
-                                    val outName = file.name
-                                        .removeSuffix(".age")
-                                        .ifEmpty { "decrypted_output" }
-                                    writeFile(outName, decompressed, strategy)
-                                    synchronized(this) {
-                                        success++
-                                        outputNames.add(outName)
-                                        _uiState.update { it.copy(processedCount = success + fail, successCount = success, progress = (success + fail).toFloat() / state.files.size) }
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                synchronized(this) {
-                                    fail++
-                                    _uiState.update { it.copy(processedCount = success + fail, failCount = fail, progress = (success + fail).toFloat() / state.files.size) }
-                                }
-                            } finally {
-                                tempFile?.let { fileHelper.deleteTempFile(it) }
+                                isTar = true
+                                success++
+                            } catch (_: Exception) {
+                                // Not tar.gz either
                             }
                         }
+
+                        if (!isTar) {
+                            // Raw single file (legacy format)
+                            val outName = file.name.removeSuffix(".age").ifEmpty { "decrypted_output" }
+                            val decompressedTemp = try {
+                                fileHelper.gunzipToTemp(decryptedTemp)
+                            } catch (_: Exception) {
+                                decryptedTemp
+                            }
+                            writeOutputFromTemp(outName, decompressedTemp, strategy)
+                            if (decompressedTemp !== decryptedTemp) fileHelper.deleteTempFile(decompressedTemp)
+                            success++
+                            outputNames.add(outName)
+                        }
+                    } catch (e: Exception) {
+                        fail++
+                    } finally {
+                        sourceTemp?.let { fileHelper.deleteTempFile(it) }
+                        fileHelper.deleteTempFile(decryptedTemp)
                     }
+                    _uiState.update { it.copy(processedCount = success + fail, successCount = success, failCount = fail, progress = (index + 1).toFloat() / state.files.size) }
+                    yield()
                 }
-                jobs.awaitAll()
 
                 operationRepository.updateOperation(record.copy(id = recordId, status = OperationStatus.SUCCESS))
                 val outDir = getOutputDir()
@@ -235,26 +245,37 @@ class DecryptViewModel @Inject constructor(
         }
     }
 
-    private suspend fun writeFile(name: String, data: ByteArray, strategy: DuplicateStrategy) {
+    private fun writeStreamToFile(name: String, input: java.io.InputStream, size: Long, strategy: DuplicateStrategy) {
         val customUriStr = customOutputDir.value
         if (customUriStr != null) {
             val customUri = Uri.parse(customUriStr)
             val subDirUri = fileHelper.getSubDirUri(customUri, "decrypted")
                 ?: throw Exception("无法创建输出子目录")
             val actualName = if (strategy == DuplicateStrategy.RENAME) fileHelper.getUniqueSafFileName(subDirUri, name) else name
-            if (!fileHelper.writeToSafFile(subDirUri, actualName, data)) {
+            if (!fileHelper.writeStreamToSafFile(subDirUri, actualName, input)) {
                 throw Exception("写入文件失败")
             }
         } else {
             val outDir = getOutputDir()
             val outFile = if (strategy == DuplicateStrategy.RENAME) fileHelper.getUniqueFile(outDir, name) else File(outDir, name)
-            ageEngine.writeFile(outFile.absolutePath, data)
+            outFile.outputStream().use { output -> input.copyTo(output, bufferSize = 8192) }
         }
     }
 
-    private suspend fun writeTarEntries(entries: List<com.age.android.core.util.TarEntry>, strategy: DuplicateStrategy) {
-        for (entry in entries) {
-            writeFile(entry.name, entry.data, strategy)
+    private fun writeOutputFromTemp(name: String, srcFile: java.io.File, strategy: DuplicateStrategy) {
+        val customUriStr = customOutputDir.value
+        if (customUriStr != null) {
+            val customUri = Uri.parse(customUriStr)
+            val subDirUri = fileHelper.getSubDirUri(customUri, "decrypted")
+                ?: throw Exception("无法创建输出子目录")
+            val actualName = if (strategy == DuplicateStrategy.RENAME) fileHelper.getUniqueSafFileName(subDirUri, name) else name
+            if (!fileHelper.copyFileToSaf(subDirUri, actualName, srcFile)) {
+                throw Exception("写入文件失败")
+            }
+        } else {
+            val outDir = getOutputDir()
+            val outFile = if (strategy == DuplicateStrategy.RENAME) fileHelper.getUniqueFile(outDir, name) else File(outDir, name)
+            srcFile.copyTo(outFile, overwrite = true)
         }
     }
 }

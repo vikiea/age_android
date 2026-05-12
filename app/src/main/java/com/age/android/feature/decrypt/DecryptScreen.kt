@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
@@ -36,6 +37,10 @@ fun DecryptScreen(
         if (uris.isNotEmpty()) viewModel.addFiles(uris)
     }
 
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) viewModel.addFilesFromFolder(uri)
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
             title = { Text("解密") },
@@ -55,10 +60,17 @@ fun DecryptScreen(
         ) {
             Text("选择加密文件", style = MaterialTheme.typography.titleMedium)
 
-            OutlinedButton(onClick = { filePicker.launch(arrayOf("*/*")) }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("添加 .age 文件")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { filePicker.launch(arrayOf("*/*")) }, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("添加文件")
+                }
+                OutlinedButton(onClick = { folderPicker.launch(null) }, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.FolderOpen, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("选择文件夹")
+                }
             }
 
             if (uiState.files.isNotEmpty()) {
@@ -67,7 +79,12 @@ fun DecryptScreen(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text("已选文件 (${uiState.files.size})", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(bottom = 4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
+                            Text("已选文件 (${uiState.files.size})", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { viewModel.clearFiles() }, enabled = !uiState.isProcessing, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
+                                Text("清空", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
                         uiState.files.forEachIndexed { index, file ->
                             Row(
                                 modifier = Modifier
@@ -77,7 +94,7 @@ fun DecryptScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(file.name, maxLines = 1, modifier = Modifier.weight(1f))
-                                IconButton(onClick = { viewModel.removeFile(index) }, modifier = Modifier.size(32.dp)) {
+                                IconButton(onClick = { viewModel.removeFile(index) }, enabled = !uiState.isProcessing, modifier = Modifier.size(32.dp)) {
                                     Icon(Icons.Default.Close, contentDescription = "移除", modifier = Modifier.size(18.dp))
                                 }
                             }
@@ -137,7 +154,7 @@ fun DecryptScreen(
             Spacer(Modifier.height(8.dp))
         }
 
-        // Bottom section: always visible
+        // Bottom section: fixed at bottom
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             HorizontalDivider()
 
@@ -163,14 +180,16 @@ fun DecryptScreen(
                                 Icon(Icons.Default.Close, contentDescription = "关闭")
                             }
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(
-                                onClick = { viewModel.shareOutput() },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.Share, contentDescription = null)
-                                Spacer(Modifier.width(4.dp))
-                                Text("分享文件")
+                        if (uiState.successCount > 0) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(
+                                    onClick = { viewModel.shareOutput() },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Default.Share, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("分享文件")
+                                }
                             }
                         }
                     }
@@ -192,7 +211,7 @@ fun DecryptScreen(
                 }
             }
 
-            Button(onClick = { viewModel.startDecrypt() }, modifier = Modifier.fillMaxWidth(), enabled = !uiState.isProcessing) { Text("开始解密") }
+            Button(onClick = { viewModel.startDecrypt() }, modifier = Modifier.fillMaxWidth(), enabled = !uiState.isProcessing && uiState.result == null) { Text("开始解密") }
         }
     }
 }

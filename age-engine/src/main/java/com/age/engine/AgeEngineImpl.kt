@@ -39,4 +39,32 @@ class AgeEngineImpl : AgeEngine {
     override suspend fun writeFile(path: String, data: ByteArray) = withContext(Dispatchers.IO) {
         Ageengine.writeFile(path, data)
     }
+
+    override suspend fun encryptStreamToFile(inputPath: String, outputPath: String, passphrase: String) = withContext(Dispatchers.IO) {
+        Ageengine.encryptStreamToFile(inputPath, outputPath, passphrase)
+    }
+
+    override suspend fun encryptStreamToFileWithKey(inputPath: String, outputPath: String, publicKey: String) = withContext(Dispatchers.IO) {
+        Ageengine.encryptStreamToFileWithKey(inputPath, outputPath, publicKey)
+    }
+
+    override suspend fun decryptStreamToFile(inputPath: String, outputPath: String, passphrase: String) = withContext(Dispatchers.IO) {
+        Ageengine.decryptStreamToFile(inputPath, outputPath, passphrase)
+    }
+
+    override suspend fun decryptStreamToFileWithKey(inputPath: String, outputPath: String, privateKey: String) = withContext(Dispatchers.IO) {
+        Ageengine.decryptStreamToFileWithKey(inputPath, outputPath, privateKey)
+    }
+
+    override suspend fun tarSingleFile(filePath: String, entryName: String, outputPath: String) = withContext(Dispatchers.IO) {
+        Ageengine.tarSingleFile(filePath, entryName, outputPath)
+    }
+
+    override suspend fun tarFilesDelim(filePathsDelim: String, fileNamesDelim: String, outputPath: String) = withContext(Dispatchers.IO) {
+        Ageengine.tarFilesDelim(filePathsDelim, fileNamesDelim, outputPath)
+    }
+
+    override suspend fun tarGzipFilesDelim(filePathsDelim: String, fileNamesDelim: String, outputPath: String) = withContext(Dispatchers.IO) {
+        Ageengine.tarGzipFilesDelim(filePathsDelim, fileNamesDelim, outputPath)
+    }
 }

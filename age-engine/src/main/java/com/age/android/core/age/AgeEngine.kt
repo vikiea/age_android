@@ -8,4 +8,11 @@ interface AgeEngine {
     suspend fun decryptWithPrivateKey(data: ByteArray, privateKey: String): ByteArray
     suspend fun readFile(path: String): ByteArray
     suspend fun writeFile(path: String, data: ByteArray)
+    suspend fun encryptStreamToFile(inputPath: String, outputPath: String, passphrase: String)
+    suspend fun encryptStreamToFileWithKey(inputPath: String, outputPath: String, publicKey: String)
+    suspend fun decryptStreamToFile(inputPath: String, outputPath: String, passphrase: String)
+    suspend fun decryptStreamToFileWithKey(inputPath: String, outputPath: String, privateKey: String)
+    suspend fun tarSingleFile(filePath: String, entryName: String, outputPath: String)
+    suspend fun tarFilesDelim(filePathsDelim: String, fileNamesDelim: String, outputPath: String)
+    suspend fun tarGzipFilesDelim(filePathsDelim: String, fileNamesDelim: String, outputPath: String)
 }

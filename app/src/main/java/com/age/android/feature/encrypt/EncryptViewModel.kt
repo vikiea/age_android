@@ -13,10 +13,6 @@ import com.age.android.core.util.FileHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.yield
 import java.io.File
 import javax.inject.Inject
@@ -29,9 +25,12 @@ data class EncryptUiState(
     val usePassphrase: Boolean = true,
     val passphrase: String = "",
     val selectedPublicKey: String = "",
+    val outputFileBaseName: String = "archive",
     val outputFileName: String = "archive.tar.gz.age",
+    val compressEnabled: Boolean = true,
     val isProcessing: Boolean = false,
     val progress: Float = 0f,
+    val phase: String = "",
     val processedCount: Int = 0,
     val totalCount: Int = 0,
     val successCount: Int = 0,
@@ -65,15 +64,32 @@ class EncryptViewModel @Inject constructor(
             val savedMode = settingsDataStore.getEncryptModeOnce()
             val savedUsePassphrase = settingsDataStore.getEncryptUsePassphraseOnce()
             val savedPublicKey = settingsDataStore.getSelectedPublicKeyOnce()
+            val savedCompress = settingsDataStore.getCompressEnabledOnce()
             _uiState.update {
+                val baseName = "archive"
                 it.copy(
                     mode = when (savedMode) {
                         "SEPARATE" -> EncryptMode.SEPARATE
                         else -> EncryptMode.BATCH_PACK
                     },
                     usePassphrase = savedUsePassphrase,
-                    selectedPublicKey = savedPublicKey
+                    selectedPublicKey = savedPublicKey,
+                    compressEnabled = savedCompress,
+                    outputFileBaseName = baseName,
+                    outputFileName = computeOutputFileName(baseName, savedCompress)
                 )
+            }
+        }
+        // Auto-sync compress setting changes from Settings page
+        viewModelScope.launch {
+            settingsDataStore.compressEnabled.collect { compress ->
+                _uiState.update {
+                    if (it.compressEnabled == compress) it
+                    else it.copy(
+                        compressEnabled = compress,
+                        outputFileName = computeOutputFileName(it.outputFileBaseName, compress)
+                    )
+                }
             }
         }
     }
@@ -83,13 +99,50 @@ class EncryptViewModel @Inject constructor(
         viewModelScope.launch { settingsDataStore.setEncryptMode(mode.name) }
     }
 
+    fun setCompressEnabled(value: Boolean) {
+        _uiState.update {
+            it.copy(
+                compressEnabled = value,
+                outputFileName = computeOutputFileName(it.outputFileBaseName, value)
+            )
+        }
+        viewModelScope.launch { settingsDataStore.setCompressEnabled(value) }
+    }
+
+    fun setOutputFileBaseName(value: String) {
+        _uiState.update {
+            it.copy(
+                outputFileBaseName = value,
+                outputFileName = computeOutputFileName(value, it.compressEnabled)
+            )
+        }
+    }
+
+    private fun computeOutputFileName(baseName: String, compress: Boolean): String {
+        val name = baseName.ifBlank { "archive" }
+        return if (compress) "$name.tar.gz.age" else "$name.tar.age"
+    }
+
     fun addFiles(uris: List<Uri>) {
-        val newFiles = uris.map { uri -> FileItem(uri, fileHelper.getFileName(uri)) }
+        val existingUris = _uiState.value.files.map { it.uri }.toSet()
+        val newFiles = uris.filter { it !in existingUris }.map { uri -> FileItem(uri, fileHelper.getFileName(uri)) }
+        if (newFiles.isEmpty()) return
+        _uiState.update { it.copy(files = it.files + newFiles) }
+    }
+
+    fun addFilesFromFolder(dirUri: Uri) {
+        val dirFiles = fileHelper.listFilesInDir(dirUri)
+        val existingUris = _uiState.value.files.map { it.uri }.toSet()
+        val newFiles = dirFiles.filter { it.uri !in existingUris }.map { FileItem(it.uri, it.name) }
         _uiState.update { it.copy(files = it.files + newFiles) }
     }
 
     fun removeFile(index: Int) {
         _uiState.update { it.copy(files = it.files.toMutableList().apply { removeAt(index) }) }
+    }
+
+    fun clearFiles() {
+        _uiState.update { it.copy(files = emptyList()) }
     }
 
     fun setUsePassphrase(value: Boolean) {
@@ -104,10 +157,6 @@ class EncryptViewModel @Inject constructor(
     fun setSelectedPublicKey(value: String) {
         _uiState.update { it.copy(selectedPublicKey = value) }
         viewModelScope.launch { settingsDataStore.setSelectedPublicKey(value) }
-    }
-
-    fun setOutputFileName(value: String) {
-        _uiState.update { it.copy(outputFileName = value) }
     }
 
     fun clearError() {
@@ -165,7 +214,7 @@ class EncryptViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isProcessing = true, error = null, result = null, progress = 0f, totalCount = state.files.size, outputFiles = emptyList(), outputDir = null) }
+            _uiState.update { it.copy(isProcessing = true, error = null, result = null, progress = 0f, phase = "", processedCount = 0, totalCount = state.files.size, successCount = 0, failCount = 0, outputFiles = emptyList(), outputDir = null) }
 
             val record = OperationRecord(
                 type = OperationType.ENCRYPT,
@@ -199,85 +248,112 @@ class EncryptViewModel @Inject constructor(
     private suspend fun batchEncrypt(state: EncryptUiState): List<String> {
         val totalFiles = state.files.size
 
-        // Phase 1: Read files
-        _uiState.update { it.copy(progress = 0f, processedCount = 0) }
-        yield()
-        val entries = state.files.mapIndexed { index, file ->
-            val data = fileHelper.readUri(file.uri) ?: throw Exception("无法读取: ${file.name}")
-            _uiState.update { it.copy(progress = (index + 1).toFloat() / totalFiles * 0.3f) }
-            yield()
-            com.age.android.core.util.TarEntry(file.name, data)
-        }
-
-        // Phase 2: Streaming compress to temp file
-        _uiState.update { it.copy(progress = 0.3f) }
-        yield()
-        val tempFile = fileHelper.tarGzipToTemp(entries)
-        _uiState.update { it.copy(progress = 0.5f) }
+        // Phase 1: Stream URIs to temp files, then tar/tar.gz via Go engine
+        val phaseText = if (state.compressEnabled) "压缩中" else "打包中"
+        _uiState.update { it.copy(progress = 0f, processedCount = 0, totalCount = totalFiles, phase = phaseText) }
         yield()
 
+        val tempFiles = mutableListOf<File>()
         try {
-            // Phase 3: Read temp file and encrypt
-            val compressed = fileHelper.readTempFile(tempFile)
-            val encrypted = if (state.usePassphrase) {
-                ageEngine.encryptWithPassphrase(compressed, state.passphrase)
-            } else {
-                ageEngine.encryptWithPublicKey(compressed, state.selectedPublicKey)
+            // Stream each URI to a temp file (Go engine can't read Android content URIs)
+            for ((index, file) in state.files.withIndex()) {
+                val temp = fileHelper.streamUriToTemp(file.uri, "src_$index")
+                tempFiles.add(temp)
+                _uiState.update { it.copy(processedCount = index + 1, progress = (index + 1) * 0.3f / totalFiles) }
+                yield()
             }
-            _uiState.update { it.copy(progress = 0.8f) }
+
+            // Tar/tar.gz via Go engine (true streaming, ~32KB memory for gzip)
+            val tarFile = File(fileHelper.getCacheDir(), "batch_${System.currentTimeMillis()}.tar${if (state.compressEnabled) ".gz" else ""}")
+            val pathsDelim = tempFiles.joinToString("\n") { it.absolutePath }
+            val namesDelim = state.files.joinToString("\n") { it.name }
+            if (state.compressEnabled) {
+                ageEngine.tarGzipFilesDelim(pathsDelim, namesDelim, tarFile.absolutePath)
+            } else {
+                ageEngine.tarFilesDelim(pathsDelim, namesDelim, tarFile.absolutePath)
+            }
+
+            _uiState.update { it.copy(progress = 0.4f, phase = "压缩完成", processedCount = 0, totalCount = 1) }
             yield()
 
-            // Phase 4: Write output
-            val outputName = writeOutput(state.outputFileName, encrypted)
-            _uiState.update { it.copy(progress = 1f, processedCount = 1, totalCount = 1, successCount = 1) }
-            return listOf(outputName)
+            // Phase 2: Streaming encrypt (40% → 90%)
+            val encryptedTemp = File(fileHelper.getCacheDir(), "enc_${System.currentTimeMillis()}.tmp")
+            try {
+                _uiState.update { it.copy(phase = "加密中") }
+                if (state.usePassphrase) {
+                    ageEngine.encryptStreamToFile(tarFile.absolutePath, encryptedTemp.absolutePath, state.passphrase)
+                } else {
+                    ageEngine.encryptStreamToFileWithKey(tarFile.absolutePath, encryptedTemp.absolutePath, state.selectedPublicKey)
+                }
+                _uiState.update { it.copy(progress = 0.9f) }
+                yield()
+
+                // Phase 3: Write output (90% → 100%)
+                _uiState.update { it.copy(phase = "写入中") }
+                val outputName = writeOutputFile(state.outputFileName, encryptedTemp)
+                _uiState.update { it.copy(progress = 1f, processedCount = 1, totalCount = 1, successCount = 1, phase = "完成") }
+                return listOf(outputName)
+            } finally {
+                fileHelper.deleteTempFile(tarFile)
+                fileHelper.deleteTempFile(encryptedTemp)
+            }
         } finally {
-            fileHelper.deleteTempFile(tempFile)
+            tempFiles.forEach { fileHelper.deleteTempFile(it) }
         }
     }
 
     private suspend fun separateEncrypt(state: EncryptUiState): List<String> {
-        val semaphore = Semaphore(4)
         var success = 0
         var fail = 0
         val outputNames = mutableListOf<String>()
 
-        val jobs = state.files.mapIndexed { index, file ->
-            viewModelScope.async {
-                semaphore.withPermit {
-                    try {
-                        val data = fileHelper.readUri(file.uri) ?: throw Exception("无法读取: ${file.name}")
-                        val encrypted = if (state.usePassphrase) {
-                            ageEngine.encryptWithPassphrase(data, state.passphrase)
-                        } else {
-                            ageEngine.encryptWithPublicKey(data, state.selectedPublicKey)
-                        }
-                        val baseName = file.name.substringBeforeLast(".")
-                        val outName = "${baseName}.age"
-                        writeOutput(outName, encrypted)
-                        synchronized(this) {
-                            success++
-                            outputNames.add(outName)
-                            _uiState.update { it.copy(processedCount = success + fail, successCount = success, progress = (success + fail).toFloat() / state.files.size) }
-                        }
-                    } catch (e: Exception) {
-                        synchronized(this) {
-                            fail++
-                            _uiState.update { it.copy(processedCount = success + fail, failCount = fail, progress = (success + fail).toFloat() / state.files.size) }
-                        }
-                    }
+        for ((index, file) in state.files.withIndex()) {
+            var sourceTemp: File? = null
+            var tarTemp: File? = null
+            var encryptedTemp: File? = null
+            try {
+                // Stream URI to temp, then tar it via Go engine (hides original extension)
+                sourceTemp = fileHelper.streamUriToTemp(file.uri, "src")
+                val tarPath = File(fileHelper.getCacheDir(), "single_${System.currentTimeMillis()}.tar")
+                ageEngine.tarSingleFile(sourceTemp.absolutePath, file.name, tarPath.absolutePath)
+                tarTemp = tarPath
+                sourceTemp.let { fileHelper.deleteTempFile(it) }
+                sourceTemp = null
+
+                encryptedTemp = File(fileHelper.getCacheDir(), "enc_${System.currentTimeMillis()}.tmp")
+
+                // Stream encrypt
+                if (state.usePassphrase) {
+                    ageEngine.encryptStreamToFile(tarTemp.absolutePath, encryptedTemp.absolutePath, state.passphrase)
+                } else {
+                    ageEngine.encryptStreamToFileWithKey(tarTemp.absolutePath, encryptedTemp.absolutePath, state.selectedPublicKey)
                 }
+
+                val baseName = file.name.substringBeforeLast(".")
+                val outName = "${baseName}.tar.age"
+                writeOutputFile(outName, encryptedTemp)
+                success++
+                outputNames.add(outName)
+                _uiState.update { it.copy(processedCount = success + fail, successCount = success, progress = (index + 1).toFloat() / state.files.size) }
+                yield()
+            } catch (e: Exception) {
+                fail++
+                _uiState.update { it.copy(processedCount = success + fail, failCount = fail, progress = (index + 1).toFloat() / state.files.size) }
+            } finally {
+                sourceTemp?.let { fileHelper.deleteTempFile(it) }
+                tarTemp?.let { fileHelper.deleteTempFile(it) }
+                encryptedTemp?.let { fileHelper.deleteTempFile(it) }
             }
         }
-        jobs.awaitAll()
         return outputNames
     }
 
     /**
-     * Write output file: use SAF API for custom directory, direct file write for fallback.
+     * Write output file from a source temp file.
+     * Uses SAF API for custom directory, direct file move for fallback.
      * Returns the actual output file name.
      */
-    private suspend fun writeOutput(fileName: String, data: ByteArray): String {
+    private suspend fun writeOutputFile(fileName: String, srcFile: File): String {
         val customUriStr = customOutputDir.value
         if (customUriStr != null) {
             val customUri = Uri.parse(customUriStr)
@@ -285,7 +361,7 @@ class EncryptViewModel @Inject constructor(
                 ?: throw Exception("无法创建输出子目录")
             val strategy = getStrategy()
             val actualName = if (strategy == DuplicateStrategy.RENAME) fileHelper.getUniqueSafFileName(subDirUri, fileName) else fileName
-            if (!fileHelper.writeToSafFile(subDirUri, actualName, data)) {
+            if (!fileHelper.copyFileToSaf(subDirUri, actualName, srcFile)) {
                 throw Exception("写入文件失败")
             }
             return actualName
@@ -293,7 +369,7 @@ class EncryptViewModel @Inject constructor(
             val strategy = getStrategy()
             val outDir = getOutputDir()
             val outFile = if (strategy == DuplicateStrategy.RENAME) fileHelper.getUniqueFile(outDir, fileName) else File(outDir, fileName)
-            ageEngine.writeFile(outFile.absolutePath, data)
+            srcFile.copyTo(outFile, overwrite = true)
             return outFile.name
         }
     }

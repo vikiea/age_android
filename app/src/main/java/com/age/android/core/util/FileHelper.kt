@@ -21,6 +21,19 @@ data class TarEntry(val name: String, val data: ByteArray)
 class FileHelper @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+    data class DirFile(val uri: Uri, val name: String)
+
+    fun listFilesInDir(dirUri: Uri): List<DirFile> {
+        val results = mutableListOf<DirFile>()
+        val dir = DocumentFile.fromTreeUri(context, dirUri) ?: return results
+        dir.listFiles().forEach { file ->
+            if (file.isFile && file.name != null) {
+                results.add(DirFile(file.uri, file.name!!))
+            }
+        }
+        return results
+    }
+
     fun readUri(uri: Uri): ByteArray? {
         return try {
             context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
@@ -132,6 +145,20 @@ class FileHelper @Inject constructor(
         }
     }
 
+    fun copyFileToSaf(dirUri: Uri, fileName: String, srcFile: File): Boolean {
+        return try {
+            val dir = DocumentFile.fromTreeUri(context, dirUri) ?: return false
+            dir.findFile(fileName)?.delete()
+            val file = dir.createFile("application/octet-stream", fileName) ?: return false
+            context.contentResolver.openOutputStream(file.uri)?.use { out ->
+                srcFile.inputStream().use { input -> input.copyTo(out) }
+            }
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     fun writeToSafFile(dirUri: Uri, fileName: String, data: ByteArray): Boolean {
         return try {
             val dir = DocumentFile.fromTreeUri(context, dirUri) ?: return false
@@ -139,6 +166,20 @@ class FileHelper @Inject constructor(
             dir.findFile(fileName)?.delete()
             val file = dir.createFile("application/octet-stream", fileName) ?: return false
             context.contentResolver.openOutputStream(file.uri)?.use { it.write(data) }
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    fun writeStreamToSafFile(dirUri: Uri, fileName: String, input: InputStream): Boolean {
+        return try {
+            val dir = DocumentFile.fromTreeUri(context, dirUri) ?: return false
+            dir.findFile(fileName)?.delete()
+            val file = dir.createFile("application/octet-stream", fileName) ?: return false
+            context.contentResolver.openOutputStream(file.uri)?.use { output ->
+                input.copyTo(output, bufferSize = 8192)
+            }
             true
         } catch (e: Exception) {
             false
@@ -162,6 +203,103 @@ class FileHelper @Inject constructor(
         val dir = File(context.cacheDir, "age_temp")
         if (!dir.exists()) dir.mkdirs()
         return dir
+    }
+
+    /**
+     * Stream tar.gz compression directly from URIs.
+     * Reads one file at a time, writes to tar.gz, then frees memory.
+     */
+    fun tarGzipFromUris(files: List<Pair<Uri, String>>, onFileProcessed: ((Int) -> Unit)? = null): File {
+        val tempFile = File(getCacheDir(), "batch_${System.currentTimeMillis()}.tar.gz")
+        TarArchiveOutputStream(GZIPOutputStream(BufferedOutputStream(FileOutputStream(tempFile)))).use { tar ->
+            tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX)
+            for ((index, file) in files.withIndex()) {
+                val (uri, name) = file
+                val size = getFileSize(uri)
+                val tarEntry = TarArchiveEntry(name)
+                tarEntry.size = size
+                tar.putArchiveEntry(tarEntry)
+                copyUriToStream(uri, tar)
+                tar.closeArchiveEntry()
+                onFileProcessed?.invoke(index + 1)
+            }
+        }
+        return tempFile
+    }
+
+    /**
+     * Stream tar-only (no compression) from URIs.
+     * Much faster than tar.gz since no CPU overhead for compression.
+     */
+    fun tarFromUris(files: List<Pair<Uri, String>>, onFileProcessed: ((Int) -> Unit)? = null): File {
+        val tempFile = File(getCacheDir(), "batch_${System.currentTimeMillis()}.tar")
+        TarArchiveOutputStream(BufferedOutputStream(FileOutputStream(tempFile))).use { tar ->
+            tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX)
+            for ((index, file) in files.withIndex()) {
+                val (uri, name) = file
+                val size = getFileSize(uri)
+                val tarEntry = TarArchiveEntry(name)
+                tarEntry.size = size
+                tar.putArchiveEntry(tarEntry)
+                copyUriToStream(uri, tar)
+                tar.closeArchiveEntry()
+                onFileProcessed?.invoke(index + 1)
+            }
+        }
+        return tempFile
+    }
+
+    fun tarSingleFile(srcFile: File, entryName: String): File {
+        val tempFile = File(getCacheDir(), "single_${System.currentTimeMillis()}.tar")
+        TarArchiveOutputStream(BufferedOutputStream(FileOutputStream(tempFile))).use { tar ->
+            tar.setLongFileMode(TarArchiveOutputStream.LONGFILE_POSIX)
+            val tarEntry = TarArchiveEntry(entryName)
+            tarEntry.size = srcFile.length()
+            tar.putArchiveEntry(tarEntry)
+            srcFile.inputStream().use { input -> input.copyTo(tar, bufferSize = 8192) }
+            tar.closeArchiveEntry()
+        }
+        return tempFile
+    }
+
+    fun cleanTempFiles() {
+        try {
+            val dir = getCacheDir()
+            dir.listFiles()?.forEach { it.delete() }
+        } catch (_: Exception) {}
+    }
+
+    private fun copyUriToStream(uri: Uri, output: OutputStream) {
+        val pfd = context.contentResolver.openFileDescriptor(uri, "r")
+            ?: throw Exception("无法打开文件")
+        pfd.use { descriptor ->
+            FileInputStream(descriptor.fileDescriptor).use { input ->
+                input.copyTo(output, bufferSize = 8192)
+            }
+        }
+    }
+
+    fun getFileSize(uri: Uri): Long {
+        return try {
+            context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getLong(0) else -1L
+            } ?: -1L
+        } catch (_: Exception) { -1L }
+    }
+
+    /**
+     * Stream a URI's content to a temp file without loading into memory.
+     */
+    fun streamUriToTemp(uri: Uri, prefix: String): File {
+        val tempFile = File(getCacheDir(), "${prefix}_${System.currentTimeMillis()}.tmp")
+        val pfd = context.contentResolver.openFileDescriptor(uri, "r")
+            ?: throw Exception("无法打开文件")
+        pfd.use { descriptor ->
+            FileInputStream(descriptor.fileDescriptor).use { input ->
+                tempFile.outputStream().use { output -> input.copyTo(output, bufferSize = 8192) }
+            }
+        }
+        return tempFile
     }
 
     /**
@@ -201,6 +339,14 @@ class FileHelper @Inject constructor(
         return GZIPInputStream(BufferedInputStream(FileInputStream(tempFile))).use { it.readBytes() }
     }
 
+    fun gunzipToTemp(srcFile: File): File {
+        val tempFile = File(getCacheDir(), "gunzip_${System.currentTimeMillis()}.tmp")
+        GZIPInputStream(BufferedInputStream(FileInputStream(srcFile))).use { input ->
+            tempFile.outputStream().use { output -> input.copyTo(output, bufferSize = 8192) }
+        }
+        return tempFile
+    }
+
     /**
      * Stream untar+gunzip: extracts files from a tar.gz temp file.
      * Returns list of (fileName, fileData).
@@ -218,6 +364,30 @@ class FileHelper @Inject constructor(
             }
         }
         return results
+    }
+
+    fun untarGzipStreaming(tempFile: File, onEntry: (String, InputStream, Long) -> Unit) {
+        TarArchiveInputStream(GZIPInputStream(BufferedInputStream(FileInputStream(tempFile)))).use { tar ->
+            var entry = tar.nextTarEntry
+            while (entry != null) {
+                if (!entry.isDirectory) {
+                    onEntry(entry.name, tar, entry.size)
+                }
+                entry = tar.nextTarEntry
+            }
+        }
+    }
+
+    fun untarStreaming(tempFile: File, onEntry: (String, InputStream, Long) -> Unit) {
+        TarArchiveInputStream(BufferedInputStream(FileInputStream(tempFile))).use { tar ->
+            var entry = tar.nextTarEntry
+            while (entry != null) {
+                if (!entry.isDirectory) {
+                    onEntry(entry.name, tar, entry.size)
+                }
+                entry = tar.nextTarEntry
+            }
+        }
     }
 
     /**

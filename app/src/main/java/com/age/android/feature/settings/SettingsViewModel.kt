@@ -29,9 +29,18 @@ class SettingsViewModel @Inject constructor(
     val outputDirUri: StateFlow<String?> = settingsDataStore.outputDirUri
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    val compressEnabled: StateFlow<Boolean> = settingsDataStore.compressEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     fun setDuplicateStrategy(strategy: DuplicateStrategy) {
         viewModelScope.launch {
             settingsDataStore.setDuplicateStrategy(strategy)
+        }
+    }
+
+    fun setCompressEnabled(value: Boolean) {
+        viewModelScope.launch {
+            settingsDataStore.setCompressEnabled(value)
         }
     }
 
