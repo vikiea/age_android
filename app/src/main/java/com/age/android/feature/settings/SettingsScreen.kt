@@ -207,15 +207,32 @@ fun SettingsScreen(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("检查更新", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        text = "从 GitHub 获取最新版本",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    if (updateState.isChecking) {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("检查更新", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                text = "从 GitHub 获取最新版本",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { viewModel.checkForUpdate() },
+                            enabled = !updateState.isChecking
+                        ) {
+                            if (updateState.isChecking) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(4.dp))
+                                Text("检查中...")
+                            } else {
+                                Icon(Icons.Default.Update, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("检查更新")
+                            }
+                        }
                     }
 
                     updateState.releaseInfo?.let { release ->
@@ -266,15 +283,8 @@ fun SettingsScreen(
                         Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = { viewModel.checkForUpdate() },
-                            enabled = !updateState.isChecking
-                        ) {
-                            Icon(Icons.Default.Update, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("检查更新")
-                        }
+                    updateState.message?.let { msg ->
+                        Text(msg, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }

@@ -11,8 +11,11 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Environment
+import android.util.Log
 import androidx.core.content.FileProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
@@ -35,11 +38,25 @@ class UpdateChecker @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val client = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(5, TimeUnit.SECONDS)
         .build()
 
     private val repo = "vikiea/age_android"
+
+    /** GitHub API sources: direct + Chinese mirrors */
+    private val apiSources = listOf(
+        "https://api.github.com/repos/$repo/releases/latest",
+        "https://mirror.ghproxy.com/https://api.github.com/repos/$repo/releases/latest",
+        "https://gh-proxy.com/https://api.github.com/repos/$repo/releases/latest",
+    )
+
+    /** Download proxy prefixes (tried in order) */
+    private val downloadProxies = listOf(
+        "",  // direct
+        "https://mirror.ghproxy.com/",
+        "https://gh-proxy.com/",
+    )
 
     fun getCurrentVersion(): String {
         return try {
@@ -59,15 +76,31 @@ class UpdateChecker @Inject constructor(
     }
 
     suspend fun checkForUpdate(): Result<ReleaseInfo?> = runCatching {
+        withContext(Dispatchers.IO) {
+            var lastException: Exception? = null
+            for (apiUrl in apiSources) {
+                try {
+                    val result = fetchReleaseFrom(apiUrl)
+                    return@withContext result
+                } catch (e: Exception) {
+                    lastException = e
+                    Log.w("UpdateChecker", "Source failed: $apiUrl", e)
+                }
+            }
+            throw lastException ?: Exception("所有更新源均不可用")
+        }
+    }
+
+    private fun fetchReleaseFrom(apiUrl: String): ReleaseInfo? {
         val request = Request.Builder()
-            .url("https://api.github.com/repos/$repo/releases/latest")
+            .url(apiUrl)
             .header("Accept", "application/vnd.github.v3+json")
             .build()
 
         val response = client.newCall(request).execute()
-        if (!response.isSuccessful) return@runCatching null
+        if (!response.isSuccessful) return null
 
-        val json = JSONObject(response.body?.string() ?: return@runCatching null)
+        val json = JSONObject(response.body?.string() ?: return null)
         val tagName = json.getString("tag_name") // e.g. "v1.0.0"
         val versionName = tagName.removePrefix("v")
         val body = json.optString("body", "")
@@ -99,10 +132,10 @@ class UpdateChecker @Inject constructor(
             }
         }
 
-        if (apkUrl.isEmpty()) return@runCatching null
+        if (apkUrl.isEmpty()) return null
 
         val currentVersion = getCurrentVersion()
-        if (isNewer(versionName, currentVersion)) {
+        return if (isNewer(versionName, currentVersion)) {
             ReleaseInfo(tagName, versionName, body, apkUrl, apkSize)
         } else {
             null
@@ -127,14 +160,38 @@ class UpdateChecker @Inject constructor(
     }
 
     fun downloadApk(url: String, versionName: String): Long {
+        // Try direct first, fallback to proxy mirrors
+        val downloadUrl = tryDownloadUrl(url)
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val request = DownloadManager.Request(Uri.parse(url))
+        val request = DownloadManager.Request(Uri.parse(downloadUrl))
             .setTitle("Age Android v$versionName")
             .setDescription("正在下载新版本...")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "age-v$versionName.apk")
             .setMimeType("application/vnd.android.package-archive")
         return dm.enqueue(request)
+    }
+
+    /** Find a reachable download URL by probing proxies */
+    private fun tryDownloadUrl(originalUrl: String): String {
+        for (prefix in downloadProxies) {
+            val url = "$prefix$originalUrl"
+            try {
+                val request = okhttp3.Request.Builder()
+                    .url(url)
+                    .head()
+                    .build()
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful || response.code == 302 || response.code == 301) {
+                    Log.d("UpdateChecker", "Download URL reachable: $url")
+                    return url
+                }
+            } catch (_: Exception) {
+                Log.w("UpdateChecker", "Download URL unreachable: $url")
+            }
+        }
+        // Fallback: return original
+        return originalUrl
     }
 
     fun installApk(apkFile: File) {

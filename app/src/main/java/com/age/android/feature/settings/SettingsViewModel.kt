@@ -33,7 +33,8 @@ data class UpdateState(
     val releaseInfo: ReleaseInfo? = null,
     val isDownloading: Boolean = false,
     val downloadId: Long? = null,
-    val error: String? = null
+    val error: String? = null,
+    val message: String? = null
 )
 
 @HiltViewModel
@@ -60,11 +61,15 @@ class SettingsViewModel @Inject constructor(
 
     fun checkForUpdate() {
         viewModelScope.launch {
-            _updateState.update { it.copy(isChecking = true, error = null) }
+            _updateState.update { it.copy(isChecking = true, error = null, message = null) }
             updateChecker.checkForUpdate()
                 .onSuccess { release ->
                     _updateState.update {
-                        it.copy(isChecking = false, releaseInfo = release)
+                        if (release != null) {
+                            it.copy(isChecking = false, releaseInfo = release, message = null)
+                        } else {
+                            it.copy(isChecking = false, releaseInfo = null, message = "已是最新版本")
+                        }
                     }
                 }
                 .onFailure { e ->
@@ -97,7 +102,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun dismissUpdate() {
-        _updateState.update { it.copy(releaseInfo = null, error = null) }
+        _updateState.update { it.copy(releaseInfo = null, error = null, message = null) }
     }
 
     fun setDuplicateStrategy(strategy: DuplicateStrategy) {
