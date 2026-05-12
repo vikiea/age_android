@@ -5,6 +5,11 @@
  */
 package com.age.android.feature.settings
 
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -14,11 +19,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.OpenInBrowser
+import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.age.android.core.data.DuplicateStrategy
 
@@ -31,6 +40,8 @@ fun SettingsScreen(
     val duplicateStrategy by viewModel.duplicateStrategy.collectAsState()
     val outputDirUri by viewModel.outputDirUri.collectAsState()
     val compressEnabled by viewModel.compressEnabled.collectAsState()
+    val updateState by viewModel.updateState.collectAsState()
+    val context = LocalContext.current
 
     val dirPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         viewModel.setOutputDirUri(uri)
@@ -38,6 +49,25 @@ fun SettingsScreen(
 
     val resolvedPath = remember(outputDirUri) {
         viewModel.resolveUriToPath(outputDirUri)
+    }
+
+    // Listen for download completion
+    LaunchedEffect(updateState.downloadId) {
+        val downloadId = updateState.downloadId ?: return@LaunchedEffect
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context, intent: Intent) {
+                val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+                if (id == downloadId) {
+                    viewModel.onDownloadComplete(id)
+                    ctx.unregisterReceiver(this)
+                }
+            }
+        }
+        ContextCompat.registerReceiver(
+            context, receiver,
+            IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -57,6 +87,7 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // ── File Storage ──
             Text("文件存储", style = MaterialTheme.typography.titleMedium)
 
             Card(
@@ -145,6 +176,7 @@ fun SettingsScreen(
                 }
             }
 
+            // ── About ──
             Text("关于", style = MaterialTheme.typography.titleMedium)
 
             Card(
@@ -154,15 +186,141 @@ fun SettingsScreen(
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(modifier = Modifier.fillMaxWidth()) {
                         Text("版本", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                        Text("1.0", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(viewModel.getCurrentVersion(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     HorizontalDivider()
                     Row(modifier = Modifier.fillMaxWidth()) {
                         Text("加密引擎", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                         Text("age (filippo.io)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    HorizontalDivider()
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Text("开源协议", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        Text("MIT License", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
+
+            // Update check
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("检查更新", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = "从 GitHub 获取最新版本",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    if (updateState.isChecking) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+
+                    updateState.releaseInfo?.let { release ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("新版本: ${release.tagName}", color = MaterialTheme.colorScheme.onPrimaryContainer, style = MaterialTheme.typography.titleSmall)
+                                if (release.body.isNotBlank()) {
+                                    Text(
+                                        text = release.body.take(200) + if (release.body.length > 200) "..." else "",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                                Text(
+                                    text = "大小: ${formatFileSize(release.apkSize)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = { viewModel.downloadUpdate() },
+                                        enabled = !updateState.isDownloading,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        if (updateState.isDownloading) {
+                                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                            Spacer(Modifier.width(8.dp))
+                                            Text("下载中...")
+                                        } else {
+                                            Icon(Icons.Default.Update, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("下载更新")
+                                        }
+                                    }
+                                    OutlinedButton(onClick = { viewModel.dismissUpdate() }) {
+                                        Text("忽略")
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    updateState.error?.let { error ->
+                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { viewModel.checkForUpdate() },
+                            enabled = !updateState.isChecking
+                        ) {
+                            Icon(Icons.Default.Update, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("检查更新")
+                        }
+                    }
+                }
+            }
+
+            // Author & GitHub
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("作者", style = MaterialTheme.typography.bodyLarge)
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Text("vikiea", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    HorizontalDivider()
+                    Text("项目地址", style = MaterialTheme.typography.bodyLarge)
+                    OutlinedButton(
+                        onClick = {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/vikiea/age_android")))
+                        }
+                    ) {
+                        Icon(Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("github.com/vikiea/age_android")
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://vikiea.github.io/age_android/privacy-policy.html")))
+                        }
+                    ) {
+                        Icon(Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("隐私政策")
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
         }
+    }
+}
+
+private fun formatFileSize(bytes: Long): String {
+    return when {
+        bytes < 1024 -> "$bytes B"
+        bytes < 1024 * 1024 -> "${bytes / 1024} KB"
+        else -> String.format("%.1f MB", bytes / (1024.0 * 1024.0))
     }
 }

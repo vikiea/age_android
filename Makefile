@@ -5,7 +5,7 @@ ENGINE_AAR := age-engine/libs/age-engine.aar
 ENGINE_LIBS := age-engine/libs
 ENGINE_JNI := age-engine/src/main/jniLibs
 GOMOBILE := $(HOME)/go/bin/gomobile
-ADB_DEVICE ?= 172.16.76.232:33093
+ADB_DEVICE ?= 172.16.76.232:44863
 
 # ADB target flag (empty = default device, set to ip:port for TCP)
 ADB_FLAG := $(if $(ADB_DEVICE),-s $(ADB_DEVICE),)

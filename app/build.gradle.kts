@@ -117,6 +117,9 @@ dependencies {
     // Apache Commons Compress (tar support)
     implementation("org.apache.commons:commons-compress:1.27.1")
 
+    // OkHttp (for update checking)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 

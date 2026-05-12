@@ -6,4 +6,7 @@
     <cache-path
         name="age_temp"
         path="age_temp/" />
+    <external-files-path
+        name="downloads"
+        path="Download/" />
 </paths>

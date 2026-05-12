@@ -359,13 +359,13 @@ class FileHelper @Inject constructor(
     fun untarGzipFromTemp(tempFile: File): List<TarEntry> {
         val results = mutableListOf<TarEntry>()
         TarArchiveInputStream(GZIPInputStream(BufferedInputStream(FileInputStream(tempFile)))).use { tar ->
-            var entry = tar.nextTarEntry
+            var entry = tar.getNextTarEntry()
             while (entry != null) {
                 if (!entry.isDirectory) {
                     val data = tar.readBytes()
                     results.add(TarEntry(entry.name, data))
                 }
-                entry = tar.nextTarEntry
+                entry = tar.getNextTarEntry()
             }
         }
         return results
@@ -373,24 +373,24 @@ class FileHelper @Inject constructor(
 
     fun untarGzipStreaming(tempFile: File, onEntry: (String, InputStream, Long) -> Unit) {
         TarArchiveInputStream(GZIPInputStream(BufferedInputStream(FileInputStream(tempFile)))).use { tar ->
-            var entry = tar.nextTarEntry
+            var entry = tar.getNextTarEntry()
             while (entry != null) {
                 if (!entry.isDirectory) {
                     onEntry(entry.name, tar, entry.size)
                 }
-                entry = tar.nextTarEntry
+                entry = tar.getNextTarEntry()
             }
         }
     }
 
     fun untarStreaming(tempFile: File, onEntry: (String, InputStream, Long) -> Unit) {
         TarArchiveInputStream(BufferedInputStream(FileInputStream(tempFile))).use { tar ->
-            var entry = tar.nextTarEntry
+            var entry = tar.getNextTarEntry()
             while (entry != null) {
                 if (!entry.isDirectory) {
                     onEntry(entry.name, tar, entry.size)
                 }
-                entry = tar.nextTarEntry
+                entry = tar.getNextTarEntry()
             }
         }
     }
