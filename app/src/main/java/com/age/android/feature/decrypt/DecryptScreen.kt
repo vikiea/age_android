@@ -33,10 +33,20 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun DecryptScreen(
     onNavigateToSettings: () -> Unit = {},
+    sharedUris: List<android.net.Uri>? = null,
+    onSharedUrisConsumed: () -> Unit = {},
     viewModel: DecryptViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val keys by viewModel.keys.collectAsState()
+
+    // Handle shared URIs from other apps
+    LaunchedEffect(sharedUris) {
+        if (!sharedUris.isNullOrEmpty()) {
+            viewModel.addFiles(sharedUris)
+            onSharedUrisConsumed()
+        }
+    }
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) viewModel.addFiles(uris)

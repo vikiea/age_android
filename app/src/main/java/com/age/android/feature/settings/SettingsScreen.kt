@@ -40,6 +40,7 @@ fun SettingsScreen(
     val duplicateStrategy by viewModel.duplicateStrategy.collectAsState()
     val outputDirUri by viewModel.outputDirUri.collectAsState()
     val compressEnabled by viewModel.compressEnabled.collectAsState()
+    val concurrency by viewModel.concurrency.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
     val context = LocalContext.current
 
@@ -173,6 +174,30 @@ fun SettingsScreen(
                         checked = compressEnabled,
                         onCheckedChange = { viewModel.setCompressEnabled(it) }
                     )
+                }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("并发数", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = "同时处理的文件数量，数值越大速度越快但内存占用更高",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    val concurrencyOptions = listOf(1, 2, 4, 8)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        concurrencyOptions.forEach { value ->
+                            FilterChip(
+                                selected = concurrency == value,
+                                onClick = { viewModel.setConcurrency(value) },
+                                label = { Text("$value") }
+                            )
+                        }
+                    }
                 }
             }
 

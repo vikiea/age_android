@@ -19,7 +19,13 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 
 data class DecryptFileItem(val uri: Uri, val name: String)
@@ -160,89 +166,103 @@ class DecryptViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isProcessing = true, error = null, result = null, progress = 0f, processedCount = 0, totalCount = state.files.size, successCount = 0, failCount = 0, outputFiles = emptyList(), outputDir = null) }
 
+            val outDirPath = getOutputDir().absolutePath
             val record = OperationRecord(
                 type = OperationType.DECRYPT,
                 mode = EncryptMode.DECRYPT,
                 inputFiles = state.files.map { it.name },
-                outputPath = fileHelper.getOutputDir().absolutePath,
+                outputPath = outDirPath,
                 recipientInfo = if (state.usePassphrase) "密码解密" else "私钥解密",
                 status = OperationStatus.RUNNING
             )
             val recordId = operationRepository.insertOperation(record)
 
             try {
-                var success = 0
-                var fail = 0
-                val outputNames = mutableListOf<String>()
+                val concurrency = settingsDataStore.getConcurrencyOnce()
+                val successCount = AtomicInteger(0)
+                val failCount = AtomicInteger(0)
+                val processedCount = AtomicInteger(0)
+                val outputNames = java.util.concurrent.ConcurrentLinkedQueue<String>()
                 val strategy = settingsDataStore.getDuplicateStrategyOnce()
+                val totalFiles = state.files.size
 
-                for ((index, file) in state.files.withIndex()) {
-                    var sourceTemp: java.io.File? = null
-                    val decryptedTemp = java.io.File(fileHelper.getCacheDir(), "dec_out_${System.currentTimeMillis()}.tmp")
-                    try {
-                        // Stream URI to temp file (no memory load)
-                        sourceTemp = fileHelper.streamUriToTemp(file.uri, "dec_src")
+                coroutineScope {
+                    val semaphore = Semaphore(concurrency)
+                    state.files.mapIndexed { index, file ->
+                        async {
+                            semaphore.withPermit {
+                                var sourceTemp: java.io.File? = null
+                                val decryptedTemp = java.io.File(fileHelper.getCacheDir(), "dec_out_${System.currentTimeMillis()}_${index}.tmp")
+                                try {
+                                    sourceTemp = fileHelper.streamUriToTemp(file.uri, "dec_src")
 
-                        // Stream decrypt
-                        if (state.usePassphrase) {
-                            ageEngine.decryptStreamToFile(sourceTemp.absolutePath, decryptedTemp.absolutePath, state.passphrase)
-                        } else {
-                            ageEngine.decryptStreamToFileWithKey(sourceTemp.absolutePath, decryptedTemp.absolutePath, state.selectedPrivateKey)
-                        }
-                        sourceTemp?.let { fileHelper.deleteTempFile(it) }
+                                    if (state.usePassphrase) {
+                                        ageEngine.decryptStreamToFile(sourceTemp.absolutePath, decryptedTemp.absolutePath, state.passphrase)
+                                    } else {
+                                        ageEngine.decryptStreamToFileWithKey(sourceTemp.absolutePath, decryptedTemp.absolutePath, state.selectedPrivateKey)
+                                    }
+                                    sourceTemp?.let { fileHelper.deleteTempFile(it) }
+                                    sourceTemp = null
 
-                        // Try streaming untar (tar-only format, no gzip)
-                        var isTar = false
-                        try {
-                            fileHelper.untarStreaming(decryptedTemp) { entryName, entryStream, entrySize ->
-                                writeStreamToFile(entryName, entryStream, entrySize, strategy)
-                                outputNames.add(entryName)
-                            }
-                            isTar = true
-                            success++
-                        } catch (_: Exception) {
-                            // Not a plain tar, try tar.gz
-                        }
+                                    var isTar = false
+                                    try {
+                                        fileHelper.untarStreaming(decryptedTemp) { entryName, entryStream, entrySize ->
+                                            writeStreamToFile(entryName, entryStream, entrySize, strategy)
+                                            outputNames.add(entryName)
+                                        }
+                                        isTar = true
+                                        successCount.incrementAndGet()
+                                    } catch (_: Exception) {}
 
-                        if (!isTar) {
-                            try {
-                                fileHelper.untarGzipStreaming(decryptedTemp) { entryName, entryStream, entrySize ->
-                                    writeStreamToFile(entryName, entryStream, entrySize, strategy)
-                                    outputNames.add(entryName)
+                                    if (!isTar) {
+                                        try {
+                                            fileHelper.untarGzipStreaming(decryptedTemp) { entryName, entryStream, entrySize ->
+                                                writeStreamToFile(entryName, entryStream, entrySize, strategy)
+                                                outputNames.add(entryName)
+                                            }
+                                            isTar = true
+                                            successCount.incrementAndGet()
+                                        } catch (_: Exception) {}
+                                    }
+
+                                    if (!isTar) {
+                                        val outName = file.name.removeSuffix(".age").ifEmpty { "decrypted_output" }
+                                        val decompressedTemp = try {
+                                            fileHelper.gunzipToTemp(decryptedTemp)
+                                        } catch (_: Exception) {
+                                            decryptedTemp
+                                        }
+                                        writeOutputFromTemp(outName, decompressedTemp, strategy)
+                                        if (decompressedTemp !== decryptedTemp) fileHelper.deleteTempFile(decompressedTemp)
+                                        successCount.incrementAndGet()
+                                        outputNames.add(outName)
+                                    }
+                                } catch (_: Exception) {
+                                    failCount.incrementAndGet()
+                                } finally {
+                                    sourceTemp?.let { fileHelper.deleteTempFile(it) }
+                                    fileHelper.deleteTempFile(decryptedTemp)
                                 }
-                                isTar = true
-                                success++
-                            } catch (_: Exception) {
-                                // Not tar.gz either
+                                val done = processedCount.incrementAndGet()
+                                _uiState.update {
+                                    it.copy(
+                                        processedCount = done,
+                                        successCount = successCount.get(),
+                                        failCount = failCount.get(),
+                                        progress = done.toFloat() / totalFiles
+                                    )
+                                }
+                                yield()
                             }
                         }
-
-                        if (!isTar) {
-                            // Raw single file (legacy format)
-                            val outName = file.name.removeSuffix(".age").ifEmpty { "decrypted_output" }
-                            val decompressedTemp = try {
-                                fileHelper.gunzipToTemp(decryptedTemp)
-                            } catch (_: Exception) {
-                                decryptedTemp
-                            }
-                            writeOutputFromTemp(outName, decompressedTemp, strategy)
-                            if (decompressedTemp !== decryptedTemp) fileHelper.deleteTempFile(decompressedTemp)
-                            success++
-                            outputNames.add(outName)
-                        }
-                    } catch (e: Exception) {
-                        fail++
-                    } finally {
-                        sourceTemp?.let { fileHelper.deleteTempFile(it) }
-                        fileHelper.deleteTempFile(decryptedTemp)
-                    }
-                    _uiState.update { it.copy(processedCount = success + fail, successCount = success, failCount = fail, progress = (index + 1).toFloat() / state.files.size) }
-                    yield()
+                    }.awaitAll()
                 }
 
-                operationRepository.updateOperation(record.copy(id = recordId, status = OperationStatus.SUCCESS))
+                val success = successCount.get()
+                val fail = failCount.get()
                 val outDir = getOutputDir()
-                _uiState.update { it.copy(isProcessing = false, result = "解密完成！成功: $success, 失败: $fail", progress = 1f, outputFiles = outputNames, outputDir = outDir.absolutePath) }
+                operationRepository.updateOperation(record.copy(id = recordId, status = OperationStatus.SUCCESS, outputPath = outDir.absolutePath))
+                _uiState.update { it.copy(isProcessing = false, result = "解密完成！成功: $success, 失败: $fail", progress = 1f, outputFiles = outputNames.toList(), outputDir = outDir.absolutePath) }
             } catch (e: Exception) {
                 operationRepository.updateOperation(record.copy(id = recordId, status = OperationStatus.FAILED, errorMessage = e.message))
                 _uiState.update { it.copy(isProcessing = false, error = "解密失败: ${e.message}") }

@@ -10,6 +10,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -35,6 +36,7 @@ class SettingsDataStore @Inject constructor(
     private val selectedPublicKeyKey = stringPreferencesKey("selected_public_key")
     private val selectedPrivateKeyKey = stringPreferencesKey("selected_private_key")
     private val compressEnabledKey = booleanPreferencesKey("compress_enabled")
+    private val concurrencyKey = intPreferencesKey("concurrency")
 
     @Volatile
     private var cachedOutputDirUri: String? = null
@@ -156,6 +158,22 @@ class SettingsDataStore @Inject constructor(
     suspend fun setCompressEnabled(value: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[compressEnabledKey] = value
+        }
+    }
+
+    val concurrency: Flow<Int> = context.dataStore.data.map { preferences ->
+        preferences[concurrencyKey] ?: 4
+    }
+
+    suspend fun getConcurrencyOnce(): Int {
+        return context.dataStore.data.map { preferences ->
+            preferences[concurrencyKey] ?: 4
+        }.first()
+    }
+
+    suspend fun setConcurrency(value: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[concurrencyKey] = value
         }
     }
 }

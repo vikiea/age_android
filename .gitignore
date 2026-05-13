@@ -1,5 +1,6 @@
 .superpowers/
 .claude/
+docs/superpowers/
 
 # Signing
 *.jks

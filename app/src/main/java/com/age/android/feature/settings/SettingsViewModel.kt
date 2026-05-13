@@ -54,6 +54,9 @@ class SettingsViewModel @Inject constructor(
     val compressEnabled: StateFlow<Boolean> = settingsDataStore.compressEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val concurrency: StateFlow<Int> = settingsDataStore.concurrency
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 4)
+
     private val _updateState = MutableStateFlow(UpdateState())
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
 
@@ -114,6 +117,12 @@ class SettingsViewModel @Inject constructor(
     fun setCompressEnabled(value: Boolean) {
         viewModelScope.launch {
             settingsDataStore.setCompressEnabled(value)
+        }
+    }
+
+    fun setConcurrency(value: Int) {
+        viewModelScope.launch {
+            settingsDataStore.setConcurrency(value)
         }
     }
 

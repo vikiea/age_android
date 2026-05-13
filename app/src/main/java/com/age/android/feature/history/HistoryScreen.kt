@@ -23,7 +23,10 @@ import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
+fun HistoryScreen(
+    onOperationClick: (Long) -> Unit = {},
+    viewModel: HistoryViewModel = hiltViewModel()
+) {
     val uiState by viewModel.uiState.collectAsState()
     val operations by viewModel.operations.collectAsState()
 
@@ -59,7 +62,8 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
                     items(filteredOps) { op ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            onClick = { onOperationClick(op.id) }
                         ) {
                             ListItem(
                                 headlineContent = { Text("${if (op.type == OperationType.ENCRYPT) "加密" else "解密"} - ${op.mode.name}") },

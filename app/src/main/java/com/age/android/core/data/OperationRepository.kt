@@ -27,4 +27,8 @@ class OperationRepository @Inject constructor(
         operationDao.updateOperation(record)
 
     suspend fun clearAll() = operationDao.clearAll()
+
+    fun getOperationById(id: Long): Flow<OperationRecord?> = operationDao.getOperationById(id)
+
+    suspend fun deleteOperation(id: Long) = operationDao.deleteOperation(id)
 }

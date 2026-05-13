@@ -28,16 +28,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import android.net.Uri
 import com.age.android.core.model.EncryptMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EncryptScreen(
     onNavigateToSettings: () -> Unit = {},
+    sharedUris: List<Uri>? = null,
+    onSharedUrisConsumed: () -> Unit = {},
     viewModel: EncryptViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val keys by viewModel.keys.collectAsState()
+
+    // Handle shared URIs from other apps
+    LaunchedEffect(sharedUris) {
+        if (!sharedUris.isNullOrEmpty()) {
+            viewModel.addFiles(sharedUris)
+            onSharedUrisConsumed()
+        }
+    }
 
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) viewModel.addFiles(uris)

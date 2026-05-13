@@ -1,11 +1,11 @@
-APP_DEBUG_APK   := app/build/outputs/apk/debug/app-debug.apk
+APP_DEBUG_APK   := app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 APP_RELEASE_DIR := app/build/outputs/apk/release
 ENGINE_SRC := age-engine/src/main/go
 ENGINE_AAR := age-engine/libs/age-engine.aar
 ENGINE_LIBS := age-engine/libs
 ENGINE_JNI := age-engine/src/main/jniLibs
 GOMOBILE := $(HOME)/go/bin/gomobile
-ADB_DEVICE ?= 172.16.76.232:44863
+ADB_DEVICE ?= 
 
 # ADB target flag (empty = default device, set to ip:port for TCP)
 ADB_FLAG := $(if $(ADB_DEVICE),-s $(ADB_DEVICE),)

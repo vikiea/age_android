@@ -5,6 +5,7 @@
  */
 package com.age.android.navigation
 
+import android.net.Uri
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
@@ -24,6 +25,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.age.android.feature.decrypt.DecryptScreen
 import com.age.android.feature.encrypt.EncryptScreen
+import com.age.android.feature.history.HistoryDetailScreen
 import com.age.android.feature.history.HistoryScreen
 import com.age.android.feature.keys.KeyDetailScreen
 import com.age.android.feature.keys.KeysScreen
@@ -37,12 +39,30 @@ enum class TopLevelRoute(val route: String, val label: String, val icon: ImageVe
 }
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(
+    sharedUris: List<Uri>? = null,
+    onSharedUrisConsumed: () -> Unit = {}
+) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
     val showBottomBar = currentRoute in TopLevelRoute.entries.map { it.route }
+
+    // Route shared URIs to encrypt or decrypt screen based on file extension
+    LaunchedEffect(sharedUris) {
+        val uris = sharedUris ?: return@LaunchedEffect
+        if (uris.isEmpty()) return@LaunchedEffect
+        val isDecrypt = uris.any { uri ->
+            val path = uri.lastPathSegment ?: ""
+            path.endsWith(".age", ignoreCase = true)
+        }
+        val route = if (isDecrypt) TopLevelRoute.DECRYPT.route else TopLevelRoute.ENCRYPT.route
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = false }
+            launchSingleTop = true
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -72,21 +92,38 @@ fun AppNavigation() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(TopLevelRoute.ENCRYPT.route) {
-                EncryptScreen(onNavigateToSettings = { navController.navigate("settings") })
+                EncryptScreen(
+                    onNavigateToSettings = { navController.navigate("settings") },
+                    sharedUris = if (currentRoute == TopLevelRoute.ENCRYPT.route) sharedUris else null,
+                    onSharedUrisConsumed = onSharedUrisConsumed
+                )
             }
             composable(TopLevelRoute.DECRYPT.route) {
-                DecryptScreen(onNavigateToSettings = { navController.navigate("settings") })
+                DecryptScreen(
+                    onNavigateToSettings = { navController.navigate("settings") },
+                    sharedUris = if (currentRoute == TopLevelRoute.DECRYPT.route) sharedUris else null,
+                    onSharedUrisConsumed = onSharedUrisConsumed
+                )
             }
             composable(TopLevelRoute.KEYS.route) {
                 KeysScreen(onKeyClick = { keyId -> navController.navigate("key_detail/$keyId") })
             }
-            composable(TopLevelRoute.HISTORY.route) { HistoryScreen() }
+            composable(TopLevelRoute.HISTORY.route) {
+                HistoryScreen(onOperationClick = { recordId -> navController.navigate("history_detail/$recordId") })
+            }
             composable(
                 "key_detail/{keyId}",
                 arguments = listOf(navArgument("keyId") { type = NavType.LongType })
             ) { backStackEntry ->
                 val keyId = backStackEntry.arguments?.getLong("keyId") ?: 0L
                 KeyDetailScreen(keyId = keyId, onBack = { navController.popBackStack() })
+            }
+            composable(
+                "history_detail/{recordId}",
+                arguments = listOf(navArgument("recordId") { type = NavType.LongType })
+            ) { backStackEntry ->
+                val recordId = backStackEntry.arguments?.getLong("recordId") ?: 0L
+                HistoryDetailScreen(recordId = recordId, onBack = { navController.popBackStack() })
             }
             composable("settings") {
                 SettingsScreen(onBack = { navController.popBackStack() })

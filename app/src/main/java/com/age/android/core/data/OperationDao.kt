@@ -25,4 +25,10 @@ interface OperationDao {
 
     @Query("DELETE FROM operation_records")
     suspend fun clearAll()
+
+    @Query("SELECT * FROM operation_records WHERE id = :id")
+    fun getOperationById(id: Long): Flow<OperationRecord?>
+
+    @Query("DELETE FROM operation_records WHERE id = :id")
+    suspend fun deleteOperation(id: Long)
 }

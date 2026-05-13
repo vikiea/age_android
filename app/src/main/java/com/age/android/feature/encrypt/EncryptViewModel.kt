@@ -19,7 +19,13 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 
 data class FileItem(val uri: Uri, val name: String)
@@ -238,8 +244,8 @@ class EncryptViewModel @Inject constructor(
                     EncryptMode.SEPARATE -> outputNames.addAll(separateEncrypt(state))
                     else -> throw Exception("无效的加密模式")
                 }
-                operationRepository.updateOperation(record.copy(id = recordId, status = OperationStatus.SUCCESS))
                 val outDir = getOutputDir()
+                operationRepository.updateOperation(record.copy(id = recordId, status = OperationStatus.SUCCESS, outputPath = outDir.absolutePath))
                 _uiState.update { it.copy(isProcessing = false, result = "加密完成！共 ${outputNames.size} 个文件", progress = 1f, outputFiles = outputNames, outputDir = outDir.absolutePath) }
             } catch (e: Exception) {
                 operationRepository.updateOperation(record.copy(id = recordId, status = OperationStatus.FAILED, errorMessage = e.message))
@@ -308,49 +314,64 @@ class EncryptViewModel @Inject constructor(
     }
 
     private suspend fun separateEncrypt(state: EncryptUiState): List<String> {
-        var success = 0
-        var fail = 0
-        val outputNames = mutableListOf<String>()
+        val concurrency = settingsDataStore.getConcurrencyOnce()
+        val successCount = AtomicInteger(0)
+        val failCount = AtomicInteger(0)
+        val processedCount = AtomicInteger(0)
+        val outputNames = java.util.concurrent.ConcurrentLinkedQueue<String>()
 
-        for ((index, file) in state.files.withIndex()) {
-            var sourceTemp: File? = null
-            var tarTemp: File? = null
-            var encryptedTemp: File? = null
-            try {
-                // Stream URI to temp, then tar it via Go engine (hides original extension)
-                sourceTemp = fileHelper.streamUriToTemp(file.uri, "src")
-                val tarPath = File(fileHelper.getCacheDir(), "single_${System.currentTimeMillis()}.tar")
-                ageEngine.tarSingleFile(sourceTemp.absolutePath, file.name, tarPath.absolutePath)
-                tarTemp = tarPath
-                sourceTemp.let { fileHelper.deleteTempFile(it) }
-                sourceTemp = null
+        coroutineScope {
+            val semaphore = Semaphore(concurrency)
+            val totalFiles = state.files.size
+            state.files.mapIndexed { index, file ->
+                async {
+                    semaphore.withPermit {
+                        var sourceTemp: File? = null
+                        var tarTemp: File? = null
+                        var encryptedTemp: File? = null
+                        try {
+                            sourceTemp = fileHelper.streamUriToTemp(file.uri, "src")
+                            val tarPath = File(fileHelper.getCacheDir(), "single_${System.currentTimeMillis()}_${index}.tar")
+                            ageEngine.tarSingleFile(sourceTemp.absolutePath, file.name, tarPath.absolutePath)
+                            tarTemp = tarPath
+                            sourceTemp.let { fileHelper.deleteTempFile(it) }
+                            sourceTemp = null
 
-                encryptedTemp = File(fileHelper.getCacheDir(), "enc_${System.currentTimeMillis()}.tmp")
+                            encryptedTemp = File(fileHelper.getCacheDir(), "enc_${System.currentTimeMillis()}_${index}.tmp")
 
-                // Stream encrypt
-                if (state.usePassphrase) {
-                    ageEngine.encryptStreamToFile(tarTemp.absolutePath, encryptedTemp.absolutePath, state.passphrase)
-                } else {
-                    ageEngine.encryptStreamToFileWithKey(tarTemp.absolutePath, encryptedTemp.absolutePath, state.selectedPublicKey)
+                            if (state.usePassphrase) {
+                                ageEngine.encryptStreamToFile(tarTemp.absolutePath, encryptedTemp.absolutePath, state.passphrase)
+                            } else {
+                                ageEngine.encryptStreamToFileWithKey(tarTemp.absolutePath, encryptedTemp.absolutePath, state.selectedPublicKey)
+                            }
+
+                            val baseName = file.name.substringBeforeLast(".")
+                            val outName = "${baseName}.tar.age"
+                            writeOutputFile(outName, encryptedTemp)
+                            successCount.incrementAndGet()
+                            outputNames.add(outName)
+                        } catch (_: Exception) {
+                            failCount.incrementAndGet()
+                        } finally {
+                            sourceTemp?.let { fileHelper.deleteTempFile(it) }
+                            tarTemp?.let { fileHelper.deleteTempFile(it) }
+                            encryptedTemp?.let { fileHelper.deleteTempFile(it) }
+                        }
+                        val done = processedCount.incrementAndGet()
+                        _uiState.update {
+                            it.copy(
+                                processedCount = done,
+                                successCount = successCount.get(),
+                                failCount = failCount.get(),
+                                progress = done.toFloat() / totalFiles
+                            )
+                        }
+                        yield()
+                    }
                 }
-
-                val baseName = file.name.substringBeforeLast(".")
-                val outName = "${baseName}.tar.age"
-                writeOutputFile(outName, encryptedTemp)
-                success++
-                outputNames.add(outName)
-                _uiState.update { it.copy(processedCount = success + fail, successCount = success, progress = (index + 1).toFloat() / state.files.size) }
-                yield()
-            } catch (e: Exception) {
-                fail++
-                _uiState.update { it.copy(processedCount = success + fail, failCount = fail, progress = (index + 1).toFloat() / state.files.size) }
-            } finally {
-                sourceTemp?.let { fileHelper.deleteTempFile(it) }
-                tarTemp?.let { fileHelper.deleteTempFile(it) }
-                encryptedTemp?.let { fileHelper.deleteTempFile(it) }
-            }
+            }.awaitAll()
         }
-        return outputNames
+        return outputNames.toList()
     }
 
     /**

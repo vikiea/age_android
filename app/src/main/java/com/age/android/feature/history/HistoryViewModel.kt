@@ -41,4 +41,10 @@ class HistoryViewModel @Inject constructor(
             _uiState.update { it.copy(showClearDialog = false) }
         }
     }
+
+    fun deleteOperation(id: Long) {
+        viewModelScope.launch {
+            operationRepository.deleteOperation(id)
+        }
+    }
 }
