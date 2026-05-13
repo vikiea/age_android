@@ -258,25 +258,34 @@ class EncryptViewModel @Inject constructor(
 
     private suspend fun batchEncrypt(state: EncryptUiState): List<String> {
         val totalFiles = state.files.size
+        val concurrency = settingsDataStore.getConcurrencyOnce()
 
-        // Phase 1: Stream URIs to temp files, then tar/tar.gz via Go engine
+        // Phase 1: Concurrent stream URIs to temp files
         val phaseText = if (state.compressEnabled) "压缩中" else "打包中"
         _uiState.update { it.copy(progress = 0f, processedCount = 0, totalCount = totalFiles, phase = phaseText) }
         yield()
 
-        val tempFiles = mutableListOf<File>()
+        val tempFiles = arrayOfNulls<File>(totalFiles)
         try {
-            // Stream each URI to a temp file (Go engine can't read Android content URIs)
-            for ((index, file) in state.files.withIndex()) {
-                val temp = fileHelper.streamUriToTemp(file.uri, "src_$index")
-                tempFiles.add(temp)
-                _uiState.update { it.copy(processedCount = index + 1, progress = (index + 1) * 0.3f / totalFiles) }
-                yield()
+            coroutineScope {
+                val semaphore = Semaphore(concurrency)
+                val doneCount = AtomicInteger(0)
+                state.files.mapIndexed { index, file ->
+                    async {
+                        semaphore.withPermit {
+                            val temp = fileHelper.streamUriToTemp(file.uri, "src_$index")
+                            tempFiles[index] = temp
+                            val done = doneCount.incrementAndGet()
+                            _uiState.update { it.copy(processedCount = done, progress = done * 0.3f / totalFiles) }
+                            yield()
+                        }
+                    }
+                }.awaitAll()
             }
 
             // Tar/tar.gz via Go engine (true streaming, ~32KB memory for gzip)
             val tarFile = File(fileHelper.getCacheDir(), "batch_${System.currentTimeMillis()}.tar${if (state.compressEnabled) ".gz" else ""}")
-            val pathsDelim = tempFiles.joinToString("\n") { it.absolutePath }
+            val pathsDelim = tempFiles.filterNotNull().joinToString("\n") { it.absolutePath }
             val namesDelim = state.files.joinToString("\n") { it.name }
             if (state.compressEnabled) {
                 ageEngine.tarGzipFilesDelim(pathsDelim, namesDelim, tarFile.absolutePath)
@@ -309,7 +318,7 @@ class EncryptViewModel @Inject constructor(
                 fileHelper.deleteTempFile(encryptedTemp)
             }
         } finally {
-            tempFiles.forEach { fileHelper.deleteTempFile(it) }
+            tempFiles.filterNotNull().forEach { fileHelper.deleteTempFile(it) }
         }
     }
 
