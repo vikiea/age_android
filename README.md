@@ -99,13 +99,10 @@ Age Android is free and open source. If it helps you, you can voluntarily suppor
 
 自愿支持，不影响任何功能。
 
-- Alipay: `https://qr.alipay.com/fkx16776upbrkv5dwnlfi91`
-- WeChat Pay: `wxp://f2f0XmI76xOItvkXUlULQyxVMUJAVnSsIsEW5-cBOkzBWyw`
-
-The in-app QR code resources are kept at:
-
-- `app/src/main/res/drawable/donation_alipay_qr.xml`
-- `app/src/main/res/drawable/donation_wechat_qr.xml`
+<p>
+  <img src="docs/assets/donation/alipay.jpg" alt="Alipay donation QR code" width="260">
+  <img src="docs/assets/donation/wechat_pay.jpg" alt="WeChat Pay donation QR code" width="260">
+</p>
 
 ## License
 
