@@ -385,6 +385,7 @@ See LICENSE for details.
 
     .phone-frame img {
       width: 100%;
+      height: auto;
       aspect-ratio: 390 / 844;
       object-fit: cover;
       border-radius: 32px;
@@ -528,7 +529,7 @@ See LICENSE for details.
     .privacy-layout,
     .download-layout {
       display: grid;
-      grid-template-columns: minmax(0, 0.8fr) minmax(340px, 1fr);
+      grid-template-columns: minmax(0, 0.95fr) minmax(280px, 0.75fr);
       gap: 56px;
       align-items: center;
     }
@@ -570,13 +571,15 @@ See LICENSE for details.
     }
 
     .mockup-duo {
-      display: grid;
-      grid-template-columns: 0.92fr 1fr;
-      gap: 18px;
-      align-items: end;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      min-width: 0;
     }
 
     .mockup-duo .phone-frame {
+      width: min(100%, 340px);
       border-radius: 34px;
       padding: 9px;
       box-shadow: 0 26px 70px rgba(21, 58, 24, 0.2);
@@ -589,10 +592,6 @@ See LICENSE for details.
 
     .mockup-duo .phone-frame img {
       border-radius: 26px;
-    }
-
-    .mockup-duo .phone-frame:first-child {
-      transform: translateY(28px);
     }
 
     .privacy-layout {
@@ -670,6 +669,7 @@ See LICENSE for details.
 
     .shot-link img {
       width: 100%;
+      height: auto;
       aspect-ratio: 390 / 844;
       object-fit: cover;
       border-radius: 23px;
@@ -926,20 +926,16 @@ See LICENSE for details.
       }
 
       .mockup-duo {
-        grid-template-columns: 1fr 1fr;
-        gap: 10px;
+        margin-top: 8px;
       }
 
       .mockup-duo .phone-frame {
+        width: min(100%, 320px);
         border-radius: 22px;
       }
 
       .mockup-duo .phone-frame img {
         border-radius: 17px;
-      }
-
-      .mockup-duo .phone-frame:first-child {
-        transform: translateY(16px);
       }
 
       .board-row,
@@ -1102,9 +1098,6 @@ See LICENSE for details.
         <div class="mockup-duo" aria-hidden="true">
           <div class="phone-frame">
             <img src="./assets/app-screen-keys.png" width="390" height="844" alt="">
-          </div>
-          <div class="phone-frame">
-            <img src="./assets/app-screen-history.png" width="390" height="844" alt="">
           </div>
         </div>
       </div>
