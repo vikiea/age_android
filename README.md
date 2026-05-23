@@ -93,6 +93,20 @@ Age Android does not collect, transmit, or store any user data. All operations a
 
 [Privacy Policy](https://vikiea.github.io/age_android/privacy-policy.html)
 
+## Support
+
+Age Android is free and open source. If it helps you, you can voluntarily support ongoing development. Support is optional and does not unlock, change, or limit any app feature.
+
+自愿支持，不影响任何功能。
+
+- Alipay: `https://qr.alipay.com/fkx16776upbrkv5dwnlfi91`
+- WeChat Pay: `wxp://f2f0XmI76xOItvkXUlULQyxVMUJAVnSsIsEW5-cBOkzBWyw`
+
+The in-app QR code resources are kept at:
+
+- `app/src/main/res/drawable/donation_alipay_qr.xml`
+- `app/src/main/res/drawable/donation_wechat_qr.xml`
+
 ## License
 
 [MIT](LICENSE)

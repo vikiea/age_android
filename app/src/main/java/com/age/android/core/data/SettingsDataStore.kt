@@ -24,6 +24,17 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 enum class DuplicateStrategy { RENAME, OVERWRITE }
 
+enum class ThemeMode {
+    SYSTEM,
+    DARK,
+    LIGHT;
+
+    companion object {
+        fun fromStoredName(value: String?): ThemeMode =
+            entries.firstOrNull { it.name == value } ?: SYSTEM
+    }
+}
+
 @Singleton
 class SettingsDataStore @Inject constructor(
     @ApplicationContext private val context: Context
@@ -37,6 +48,7 @@ class SettingsDataStore @Inject constructor(
     private val selectedPrivateKeyKey = stringPreferencesKey("selected_private_key")
     private val compressEnabledKey = booleanPreferencesKey("compress_enabled")
     private val concurrencyKey = intPreferencesKey("concurrency")
+    private val themeModeKey = stringPreferencesKey("theme_mode")
 
     @Volatile
     private var cachedOutputDirUri: String? = null
@@ -67,6 +79,10 @@ class SettingsDataStore @Inject constructor(
             "OVERWRITE" -> DuplicateStrategy.OVERWRITE
             else -> DuplicateStrategy.RENAME
         }
+    }
+
+    val themeMode: Flow<ThemeMode> = context.dataStore.data.map { preferences ->
+        ThemeMode.fromStoredName(preferences[themeModeKey])
     }
 
     suspend fun setOutputDirUri(uri: String?) {
@@ -174,6 +190,12 @@ class SettingsDataStore @Inject constructor(
     suspend fun setConcurrency(value: Int) {
         context.dataStore.edit { preferences ->
             preferences[concurrencyKey] = value
+        }
+    }
+
+    suspend fun setThemeMode(mode: ThemeMode) {
+        context.dataStore.edit { preferences ->
+            preferences[themeModeKey] = mode.name
         }
     }
 }

@@ -9,27 +9,40 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import android.net.Uri
 import com.age.android.core.model.EncryptMode
+import com.age.android.ui.glass.GlassActionFooter
+import com.age.android.ui.glass.GlassBackdrop
+import com.age.android.ui.glass.GlassButton
+import com.age.android.ui.glass.GlassEmphasis
+import com.age.android.ui.glass.GlassOutlinedButton
+import com.age.android.ui.glass.GlassSegmentOption
+import com.age.android.ui.glass.GlassSegmentedControl
+import com.age.android.ui.glass.GlassStatusPanel
+import com.age.android.ui.glass.GlassSurface
+import com.age.android.ui.glass.GlassTextButton
+import com.age.android.ui.glass.GlassTextField
+import com.age.android.ui.glass.GlassTopBar
+import com.age.android.ui.glass.GlassTonalSurface
+import com.age.android.ui.glass.StatusTone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,6 +50,7 @@ fun EncryptScreen(
     onNavigateToSettings: () -> Unit = {},
     sharedUris: List<Uri>? = null,
     onSharedUrisConsumed: () -> Unit = {},
+    backdrop: GlassBackdrop? = null,
     viewModel: EncryptViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -59,8 +73,9 @@ fun EncryptScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TopAppBar(
-            title = { Text("加密") },
+        GlassTopBar(
+            title = "加密工作台",
+            backdrop = backdrop,
             actions = {
                 IconButton(onClick = onNavigateToSettings) {
                     Icon(Icons.Default.Settings, contentDescription = "设置")
@@ -72,113 +87,138 @@ fun EncryptScreen(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text("加密模式", style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = uiState.mode == EncryptMode.BATCH_PACK, onClick = { viewModel.setMode(EncryptMode.BATCH_PACK) }, label = { Text("打包加密") })
-                FilterChip(selected = uiState.mode == EncryptMode.SEPARATE, onClick = { viewModel.setMode(EncryptMode.SEPARATE) }, label = { Text("分别加密") })
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { filePicker.launch(arrayOf("*/*")) }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("添加文件")
-                }
-                OutlinedButton(onClick = { folderPicker.launch(null) }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.FolderOpen, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("选择文件夹")
-                }
-            }
-
-            if (uiState.files.isNotEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
+            GlassSurface(modifier = Modifier.fillMaxWidth(), backdrop = backdrop, emphasis = GlassEmphasis.Normal) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
-                            Text("已选文件 (${uiState.files.size})", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
-                            TextButton(onClick = { viewModel.clearFiles() }, enabled = !uiState.isProcessing, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
-                                Text("清空", style = MaterialTheme.typography.labelSmall)
-                            }
+                    SectionTitle("文件")
+                    GlassSegmentedControl(
+                        options = listOf(
+                            GlassSegmentOption(EncryptMode.BATCH_PACK, "打包加密"),
+                            GlassSegmentOption(EncryptMode.SEPARATE, "分别加密")
+                        ),
+                        selectedValue = uiState.mode,
+                        onSelected = { viewModel.setMode(it) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !uiState.isProcessing
+                    )
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GlassOutlinedButton(onClick = { filePicker.launch(arrayOf("*/*")) }, modifier = Modifier.weight(1f), enabled = !uiState.isProcessing) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("添加文件")
                         }
-                        uiState.files.forEachIndexed { index, file ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .padding(vertical = 4.dp, horizontal = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(file.name, maxLines = 1, modifier = Modifier.weight(1f))
-                                IconButton(onClick = { viewModel.removeFile(index) }, enabled = !uiState.isProcessing, modifier = Modifier.size(32.dp)) {
-                                    Icon(Icons.Default.Close, contentDescription = "移除", modifier = Modifier.size(18.dp))
+                        GlassOutlinedButton(onClick = { folderPicker.launch(null) }, modifier = Modifier.weight(1f), enabled = !uiState.isProcessing) {
+                            Icon(Icons.Default.FolderOpen, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("选择文件夹")
+                        }
+                    }
+
+                    if (uiState.files.isNotEmpty()) {
+                        GlassTonalSurface(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
+                                    Text("已选文件 (${uiState.files.size})", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                                    GlassTextButton(onClick = { viewModel.clearFiles() }, enabled = !uiState.isProcessing) {
+                                        Text("清空", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                                uiState.files.forEachIndexed { index, file ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp, horizontal = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(file.name, maxLines = 1, modifier = Modifier.weight(1f))
+                                        IconButton(onClick = { viewModel.removeFile(index) }, enabled = !uiState.isProcessing, modifier = Modifier.size(32.dp)) {
+                                            Icon(Icons.Default.Close, contentDescription = "移除", modifier = Modifier.size(18.dp))
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+            GlassSurface(modifier = Modifier.fillMaxWidth(), backdrop = backdrop, emphasis = GlassEmphasis.Normal) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SectionTitle("加密方式")
+                    GlassSegmentedControl(
+                        options = listOf(
+                            GlassSegmentOption(true, "密码加密"),
+                            GlassSegmentOption(false, "公钥加密")
+                        ),
+                        selectedValue = uiState.usePassphrase,
+                        onSelected = { viewModel.setUsePassphrase(it) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !uiState.isProcessing
+                    )
 
-            Text("加密方式", style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = uiState.usePassphrase, onClick = { viewModel.setUsePassphrase(true) }, label = { Text("密码加密") })
-                FilterChip(selected = !uiState.usePassphrase, onClick = { viewModel.setUsePassphrase(false) }, label = { Text("公钥加密") })
-            }
-
-            if (uiState.usePassphrase) {
-                var showPass by remember { mutableStateOf(false) }
-                OutlinedTextField(
-                    value = uiState.passphrase,
-                    onValueChange = { viewModel.setPassphrase(it) },
-                    label = { Text("输入密码") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    visualTransformation = if (showPass) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { showPass = !showPass }) {
-                            Icon(if (showPass) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = if (showPass) "隐藏" else "显示")
-                        }
-                    }
-                )
-            } else {
-                if (keys.isNotEmpty()) {
-                    var expanded by remember { mutableStateOf(false) }
-                    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-                        OutlinedTextField(value = uiState.selectedPublicKey, onValueChange = { viewModel.setSelectedPublicKey(it) }, label = { Text("公钥") }, modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, true), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) })
-                        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                            keys.forEach { key ->
-                                DropdownMenuItem(text = { Text("${key.name}: ${key.publicKey.take(20)}...") }, onClick = { viewModel.setSelectedPublicKey(key.publicKey); expanded = false })
+                    if (uiState.usePassphrase) {
+                        var showPass by remember { mutableStateOf(false) }
+                        GlassTextField(
+                            value = uiState.passphrase,
+                            onValueChange = { viewModel.setPassphrase(it) },
+                            label = "输入密码",
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            visualTransformation = if (showPass) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = {
+                                IconButton(onClick = { showPass = !showPass }) {
+                                    Icon(if (showPass) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = if (showPass) "隐藏" else "显示")
+                                }
                             }
+                        )
+                    } else {
+                        if (keys.isNotEmpty()) {
+                            var expanded by remember { mutableStateOf(false) }
+                            ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+                                GlassTextField(value = uiState.selectedPublicKey, onValueChange = { viewModel.setSelectedPublicKey(it) }, label = "公钥", modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, true), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) })
+                                ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                                    keys.forEach { key ->
+                                        DropdownMenuItem(text = { Text("${key.name}: ${key.publicKey.take(20)}...") }, onClick = { viewModel.setSelectedPublicKey(key.publicKey); expanded = false })
+                                    }
+                                }
+                            }
+                        } else {
+                            GlassTextField(value = uiState.selectedPublicKey, onValueChange = { viewModel.setSelectedPublicKey(it) }, label = "输入公钥 (age1xxx)", modifier = Modifier.fillMaxWidth(), singleLine = true)
                         }
                     }
-                } else {
-                    OutlinedTextField(value = uiState.selectedPublicKey, onValueChange = { viewModel.setSelectedPublicKey(it) }, label = { Text("输入公钥 (age1xxx)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 }
             }
 
             if (uiState.mode == EncryptMode.BATCH_PACK) {
-                OutlinedTextField(
-                    value = uiState.outputFileBaseName,
-                    onValueChange = { viewModel.setOutputFileBaseName(it) },
-                    label = { Text("输出文件名") },
-                    suffix = { Text(if (uiState.compressEnabled) ".tar.gz.age" else ".tar.age") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
+                GlassSurface(modifier = Modifier.fillMaxWidth(), backdrop = backdrop, emphasis = GlassEmphasis.Subtle) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        SectionTitle("输出")
+                        GlassTextField(
+                            value = uiState.outputFileBaseName,
+                            onValueChange = { viewModel.setOutputFileBaseName(it) },
+                            label = "输出文件名",
+                            suffix = { Text(if (uiState.compressEnabled) ".tar.gz.age" else ".tar.age") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                    }
+                }
             }
-
-            Spacer(Modifier.height(8.dp))
         }
 
-        // Bottom section: fixed at bottom
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            HorizontalDivider()
-
+        GlassActionFooter(backdrop = backdrop) {
             if (uiState.isProcessing) {
                 LinearProgressIndicator(progress = { uiState.progress }, modifier = Modifier.fillMaxWidth())
                 val statusText = if (uiState.phase.isNotEmpty()) {
@@ -190,52 +230,47 @@ fun EncryptScreen(
             }
 
             uiState.result?.let {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(verticalAlignment = Alignment.Top) {
-                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(it, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                                uiState.outputDir?.let { dir -> Text("目录: $dir", style = MaterialTheme.typography.bodySmall) }
-                                uiState.outputFiles.forEach { name -> Text("  $name", style = MaterialTheme.typography.bodySmall) }
-                            }
-                            IconButton(onClick = { viewModel.clearResult() }) {
-                                Icon(Icons.Default.Close, contentDescription = "关闭")
-                            }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(
-                                onClick = { viewModel.shareOutput() },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.Share, contentDescription = null)
-                                Spacer(Modifier.width(4.dp))
-                                Text("分享文件")
-                            }
+                GlassStatusPanel(
+                    title = "加密完成",
+                    tone = StatusTone.Success,
+                    onDismiss = { viewModel.clearResult() },
+                    actions = {
+                        GlassOutlinedButton(
+                            onClick = { viewModel.shareOutput() },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null)
+                            Spacer(Modifier.width(4.dp))
+                            Text("分享文件")
                         }
                     }
+                ) {
+                    Text(it)
+                    uiState.outputDir?.let { dir -> Text("目录: $dir", style = MaterialTheme.typography.bodySmall) }
+                    uiState.outputFiles.forEach { name -> Text("  $name", style = MaterialTheme.typography.bodySmall) }
                 }
             }
 
             uiState.error?.let {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                GlassStatusPanel(
+                    title = "加密失败",
+                    tone = StatusTone.Error,
+                    onDismiss = { viewModel.clearError() }
                 ) {
-                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(it, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { viewModel.clearError() }) {
-                            Icon(Icons.Default.Close, contentDescription = "关闭")
-                        }
-                    }
+                    Text(it)
                 }
             }
 
-            Button(onClick = { viewModel.startEncrypt() }, modifier = Modifier.fillMaxWidth(), enabled = !uiState.isProcessing && uiState.result == null) { Text("开始加密") }
+            GlassButton(onClick = { viewModel.startEncrypt() }, modifier = Modifier.fillMaxWidth(), enabled = !uiState.isProcessing && uiState.result == null) { Text("开始加密") }
         }
     }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold
+    )
 }

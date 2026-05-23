@@ -13,6 +13,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.age.android.core.data.DuplicateStrategy
 import com.age.android.core.data.SettingsDataStore
+import com.age.android.core.data.ThemeMode
 import com.age.android.core.update.ReleaseInfo
 import com.age.android.core.update.UpdateChecker
 import com.age.android.core.util.FileHelper
@@ -56,6 +57,9 @@ class SettingsViewModel @Inject constructor(
 
     val concurrency: StateFlow<Int> = settingsDataStore.concurrency
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 4)
+
+    val themeMode: StateFlow<ThemeMode> = settingsDataStore.themeMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ThemeMode.SYSTEM)
 
     private val _updateState = MutableStateFlow(UpdateState())
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
@@ -123,6 +127,12 @@ class SettingsViewModel @Inject constructor(
     fun setConcurrency(value: Int) {
         viewModelScope.launch {
             settingsDataStore.setConcurrency(value)
+        }
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch {
+            settingsDataStore.setThemeMode(mode)
         }
     }
 

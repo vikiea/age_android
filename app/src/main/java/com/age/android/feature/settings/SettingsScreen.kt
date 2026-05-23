@@ -12,37 +12,87 @@ import android.content.Intent
 import android.content.IntentFilter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Update
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.age.android.R
 import com.age.android.core.data.DuplicateStrategy
+import com.age.android.core.data.ThemeMode
+import com.age.android.core.update.ReleaseInfo
+import com.age.android.ui.glass.GlassBackdrop
+import com.age.android.ui.glass.GlassButton
+import com.age.android.ui.glass.GlassEmphasis
+import com.age.android.ui.glass.GlassOutlinedButton
+import com.age.android.ui.glass.GlassSegmentOption
+import com.age.android.ui.glass.GlassSegmentedControl
+import com.age.android.ui.glass.GlassSurface
+import com.age.android.ui.glass.GlassSwitch
+import com.age.android.ui.glass.GlassTextButton
+import com.age.android.ui.glass.GlassTopBar
+import com.age.android.ui.glass.GlassTonalSurface
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
-    viewModel: SettingsViewModel = hiltViewModel()
+    viewModel: SettingsViewModel = hiltViewModel(),
+    backdrop: GlassBackdrop? = null
 ) {
     val duplicateStrategy by viewModel.duplicateStrategy.collectAsState()
     val outputDirUri by viewModel.outputDirUri.collectAsState()
     val compressEnabled by viewModel.compressEnabled.collectAsState()
     val concurrency by viewModel.concurrency.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
     val context = LocalContext.current
+    var showDonationDialog by remember { mutableStateOf(false) }
 
     val dirPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         viewModel.setOutputDirUri(uri)
@@ -52,7 +102,6 @@ fun SettingsScreen(
         viewModel.resolveUriToPath(outputDirUri)
     }
 
-    // Listen for download completion
     LaunchedEffect(updateState.downloadId) {
         val downloadId = updateState.downloadId ?: return@LaunchedEffect
         val receiver = object : BroadcastReceiver() {
@@ -65,15 +114,17 @@ fun SettingsScreen(
             }
         }
         ContextCompat.registerReceiver(
-            context, receiver,
+            context,
+            receiver,
             IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TopAppBar(
-            title = { Text("设置") },
+        GlassTopBar(
+            title = "设置",
+            backdrop = backdrop,
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
@@ -85,271 +136,521 @@ fun SettingsScreen(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // ── File Storage ──
-            Text("文件存储", style = MaterialTheme.typography.titleMedium)
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("保存位置", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        text = resolvedPath ?: "默认: ${viewModel.getDefaultDirPath()}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { dirPicker.launch(null) }) {
-                            Icon(Icons.Default.Folder, contentDescription = null)
-                            Spacer(Modifier.width(4.dp))
-                            Text(if (outputDirUri != null) "更换目录" else "选择目录")
-                        }
-                        if (outputDirUri != null) {
-                            OutlinedButton(onClick = { viewModel.setOutputDirUri(null) }) { Text("恢复默认") }
-                        }
-                    }
-                    Text(
-                        text = "加密和解密文件保存在同一目录的 encrypted/ 和 decrypted/ 子目录中",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            SectionTitle("外观")
+            SettingsSection(backdrop = backdrop, title = "主题") {
+                Text(
+                    text = themeMode.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                GlassSegmentedControl(
+                    options = ThemeMode.entries.map { mode -> GlassSegmentOption(mode, mode.label) },
+                    selectedValue = themeMode,
+                    onSelected = { viewModel.setThemeMode(it) },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("文件名重复时", style = MaterialTheme.typography.bodyLarge)
-                    Text("当输出目录已存在同名文件时的处理方式", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
-                            selected = duplicateStrategy == DuplicateStrategy.RENAME,
-                            onClick = { viewModel.setDuplicateStrategy(DuplicateStrategy.RENAME) },
-                            label = { Text("自动重命名") }
-                        )
-                        FilterChip(
-                            selected = duplicateStrategy == DuplicateStrategy.OVERWRITE,
-                            onClick = { viewModel.setDuplicateStrategy(DuplicateStrategy.OVERWRITE) },
-                            label = { Text("覆盖") }
-                        )
+            SectionTitle("文件存储")
+            SettingsSection(backdrop = backdrop, title = "保存位置") {
+                Text(
+                    text = resolvedPath ?: "默认: ${viewModel.getDefaultDirPath()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GlassOutlinedButton(onClick = { dirPicker.launch(null) }) {
+                        Icon(Icons.Default.Folder, contentDescription = null)
+                        Spacer(Modifier.width(4.dp))
+                        Text(if (outputDirUri != null) "更换目录" else "选择目录")
                     }
+                    if (outputDirUri != null) {
+                        GlassOutlinedButton(onClick = { viewModel.setOutputDirUri(null) }) {
+                            Text("恢复默认")
+                        }
+                    }
+                }
+                Text(
+                    text = "加密和解密文件保存在同一目录的 encrypted/ 和 decrypted/ 子目录中",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
-                    Text(
-                        text = when (duplicateStrategy) {
-                            DuplicateStrategy.RENAME -> "自动添加 _1, _2 等后缀，保留原文件"
-                            DuplicateStrategy.OVERWRITE -> "直接覆盖已有文件"
+            SettingsSection(backdrop = backdrop, title = "文件名重复时") {
+                Text(
+                    text = "当输出目录已存在同名文件时的处理方式",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                GlassSegmentedControl(
+                    options = listOf(
+                        GlassSegmentOption(DuplicateStrategy.RENAME, "自动重命名"),
+                        GlassSegmentOption(DuplicateStrategy.OVERWRITE, "覆盖")
+                    ),
+                    selectedValue = duplicateStrategy,
+                    onSelected = { viewModel.setDuplicateStrategy(it) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = when (duplicateStrategy) {
+                        DuplicateStrategy.RENAME -> "自动添加 _1, _2 等后缀，保留原文件"
+                        DuplicateStrategy.OVERWRITE -> "直接覆盖已有文件"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            ToggleSection(
+                backdrop = backdrop,
+                title = "打包时压缩",
+                description = if (compressEnabled) {
+                    "tar.gz 格式，体积更小但速度较慢"
+                } else {
+                    "tar 格式，速度更快但体积更大"
+                },
+                checked = compressEnabled,
+                onCheckedChange = { viewModel.setCompressEnabled(it) }
+            )
+
+            SettingsSection(backdrop = backdrop, title = "并发数") {
+                Text(
+                    text = "同时处理的文件数量，数值越大速度越快但内存占用更高",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GlassSegmentedControl(
+                        options = listOf(1, 2, 4, 8).map { value ->
+                            GlassSegmentOption(value, "$value")
                         },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        selectedValue = concurrency,
+                        onSelected = { viewModel.setConcurrency(it) },
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            SectionTitle("关于")
+            SettingsSection(backdrop = backdrop, title = "应用信息") {
+                DetailRow("版本", viewModel.getCurrentVersion())
+                HorizontalDivider()
+                DetailRow("加密引擎", "age (filippo.io)")
+                HorizontalDivider()
+                DetailRow("开源协议", "MIT License")
+            }
+
+            UpdateSection(
+                backdrop = backdrop,
+                updateState = updateState,
+                onCheck = { viewModel.checkForUpdate() },
+                onDownload = { viewModel.downloadUpdate() },
+                onDismiss = { viewModel.dismissUpdate() }
+            )
+
+            SettingsSection(backdrop = backdrop, title = "作者与项目") {
+                DetailRow("作者", "vikiea")
+                HorizontalDivider()
+                GlassOutlinedButton(
+                    onClick = { showDonationDialog = true },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("打包时压缩", style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            text = if (compressEnabled) "tar.gz 格式，体积更小但速度较慢" else "tar 格式，速度更快但体积更大",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    Icon(Icons.Default.Favorite, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("支持开发")
+                }
+                ExternalLinkButton(
+                    text = "github.com/vikiea/age_android",
+                    onClick = {
+                        context.startActivity(
+                            Intent(
+                                Intent.ACTION_VIEW,
+                                android.net.Uri.parse("https://github.com/vikiea/age_android")
+                            )
                         )
                     }
-                    Switch(
-                        checked = compressEnabled,
-                        onCheckedChange = { viewModel.setCompressEnabled(it) }
-                    )
-                }
-            }
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("并发数", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        text = "同时处理的文件数量，数值越大速度越快但内存占用更高",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    val concurrencyOptions = listOf(1, 2, 4, 8)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        concurrencyOptions.forEach { value ->
-                            FilterChip(
-                                selected = concurrency == value,
-                                onClick = { viewModel.setConcurrency(value) },
-                                label = { Text("$value") }
+                )
+                ExternalLinkButton(
+                    text = "隐私政策",
+                    onClick = {
+                        context.startActivity(
+                            Intent(
+                                Intent.ACTION_VIEW,
+                                android.net.Uri.parse("https://vikiea.github.io/age_android/privacy-policy.html")
                             )
-                        }
+                        )
                     }
-                }
+                )
             }
-
-            // ── About ──
-            Text("关于", style = MaterialTheme.typography.titleMedium)
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Text("版本", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                        Text(viewModel.getCurrentVersion(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    HorizontalDivider()
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Text("加密引擎", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                        Text("age (filippo.io)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    HorizontalDivider()
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Text("开源协议", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                        Text("MIT License", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-
-            // Update check
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("检查更新", style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                text = "从 GitHub 获取最新版本",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        OutlinedButton(
-                            onClick = { viewModel.checkForUpdate() },
-                            enabled = !updateState.isChecking
-                        ) {
-                            if (updateState.isChecking) {
-                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                Spacer(Modifier.width(4.dp))
-                                Text("检查中...")
-                            } else {
-                                Icon(Icons.Default.Update, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("检查更新")
-                            }
-                        }
-                    }
-
-                    updateState.releaseInfo?.let { release ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("新版本: ${release.tagName}", color = MaterialTheme.colorScheme.onPrimaryContainer, style = MaterialTheme.typography.titleSmall)
-                                if (release.body.isNotBlank()) {
-                                    Text(
-                                        text = release.body.take(200) + if (release.body.length > 200) "..." else "",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                                Text(
-                                    text = "大小: ${formatFileSize(release.apkSize)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(
-                                        onClick = { viewModel.downloadUpdate() },
-                                        enabled = !updateState.isDownloading,
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        if (updateState.isDownloading) {
-                                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                            Spacer(Modifier.width(8.dp))
-                                            Text("下载中...")
-                                        } else {
-                                            Icon(Icons.Default.Update, contentDescription = null, modifier = Modifier.size(16.dp))
-                                            Spacer(Modifier.width(4.dp))
-                                            Text("下载更新")
-                                        }
-                                    }
-                                    OutlinedButton(onClick = { viewModel.dismissUpdate() }) {
-                                        Text("忽略")
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    updateState.error?.let { error ->
-                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    }
-
-                    updateState.message?.let { msg ->
-                        Text(msg, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-
-            // Author & GitHub
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("作者", style = MaterialTheme.typography.bodyLarge)
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Text("vikiea", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    HorizontalDivider()
-                    Text("项目地址", style = MaterialTheme.typography.bodyLarge)
-                    OutlinedButton(
-                        onClick = {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/vikiea/age_android")))
-                        }
-                    ) {
-                        Icon(Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("github.com/vikiea/age_android")
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://vikiea.github.io/age_android/privacy-policy.html")))
-                        }
-                    ) {
-                        Icon(Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("隐私政策")
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
         }
     }
+
+    if (showDonationDialog) {
+        DonationDialog(
+            backdrop = backdrop,
+            onDismiss = { showDonationDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun DonationDialog(
+    backdrop: GlassBackdrop?,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        GlassSurface(
+            modifier = Modifier
+                .padding(20.dp)
+                .fillMaxWidth()
+                .widthIn(max = 560.dp),
+            backdrop = backdrop,
+            emphasis = GlassEmphasis.Strong
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "感谢你的支持",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "如果 Age 对你有帮助，可以通过下面的二维码支持开发与维护。自愿支持，不影响任何功能。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                DonationQrGrid()
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    GlassTextButton(onClick = onDismiss) {
+                        Text("关闭")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DonationQrGrid() {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        if (maxWidth >= 430.dp) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                DonationQrCard(
+                    title = "支付宝",
+                    hint = "请使用支付宝扫一扫",
+                    drawableRes = R.drawable.donation_alipay_qr,
+                    modifier = Modifier.weight(1f)
+                )
+                DonationQrCard(
+                    title = "微信支付",
+                    hint = "请使用微信扫一扫",
+                    drawableRes = R.drawable.donation_wechat_qr,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                DonationQrCard(
+                    title = "支付宝",
+                    hint = "请使用支付宝扫一扫",
+                    drawableRes = R.drawable.donation_alipay_qr,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                DonationQrCard(
+                    title = "微信支付",
+                    hint = "请使用微信扫一扫",
+                    drawableRes = R.drawable.donation_wechat_qr,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DonationQrCard(
+    title: String,
+    hint: String,
+    drawableRes: Int,
+    modifier: Modifier = Modifier
+) {
+    GlassTonalSurface(modifier = modifier) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 220.dp)
+                    .aspectRatio(1f)
+                    .clip(MaterialTheme.shapes.medium)
+                    .background(androidx.compose.ui.graphics.Color.White)
+                    .padding(10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(drawableRes),
+                    contentDescription = "$title 收款码",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+            }
+            Text(
+                text = hint,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsSection(
+    backdrop: GlassBackdrop?,
+    title: String,
+    emphasis: GlassEmphasis = GlassEmphasis.Normal,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    GlassSurface(
+        modifier = Modifier.fillMaxWidth(),
+        backdrop = backdrop,
+        emphasis = emphasis
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+            content()
+        }
+    }
+}
+
+@Composable
+private fun ToggleSection(
+    backdrop: GlassBackdrop?,
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    GlassSurface(
+        modifier = Modifier.fillMaxWidth(),
+        backdrop = backdrop,
+        emphasis = GlassEmphasis.Normal
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(title, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            GlassSwitch(
+                checked = checked,
+                onCheckedChange = onCheckedChange
+            )
+        }
+    }
+}
+
+@Composable
+private fun UpdateSection(
+    backdrop: GlassBackdrop?,
+    updateState: UpdateState,
+    onCheck: () -> Unit,
+    onDownload: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    SettingsSection(backdrop = backdrop, title = "检查更新") {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "从 GitHub 获取最新版本",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            GlassOutlinedButton(
+                onClick = onCheck,
+                enabled = !updateState.isChecking
+            ) {
+                if (updateState.isChecking) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(4.dp))
+                    Text("检查中...")
+                } else {
+                    Icon(Icons.Default.Update, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("检查更新")
+                }
+            }
+        }
+
+        updateState.releaseInfo?.let { release ->
+            ReleasePanel(
+                release = release,
+                isDownloading = updateState.isDownloading,
+                onDownload = onDownload,
+                onDismiss = onDismiss
+            )
+        }
+
+        updateState.error?.let { error ->
+            Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+
+        updateState.message?.let { msg ->
+            Text(msg, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun ReleasePanel(
+    release: ReleaseInfo,
+    isDownloading: Boolean,
+    onDownload: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    GlassTonalSurface(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "新版本: ${release.tagName}",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.titleSmall
+            )
+            if (release.body.isNotBlank()) {
+                Text(
+                    text = release.body.take(200) + if (release.body.length > 200) "..." else "",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                text = "大小: ${formatFileSize(release.apkSize)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassButton(
+                    onClick = onDownload,
+                    enabled = !isDownloading,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (isDownloading) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("下载中...")
+                    } else {
+                        Icon(Icons.Default.Update, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("下载更新")
+                    }
+                }
+                GlassOutlinedButton(onClick = onDismiss) {
+                    Text("忽略")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun ExternalLinkButton(
+    text: String,
+    onClick: () -> Unit
+) {
+    GlassOutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Icon(Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold
+    )
 }
 
 private fun formatFileSize(bytes: Long): String {
@@ -359,3 +660,17 @@ private fun formatFileSize(bytes: Long): String {
         else -> String.format("%.1f MB", bytes / (1024.0 * 1024.0))
     }
 }
+
+private val ThemeMode.label: String
+    get() = when (this) {
+        ThemeMode.SYSTEM -> "跟随系统"
+        ThemeMode.DARK -> "深色"
+        ThemeMode.LIGHT -> "浅色"
+    }
+
+private val ThemeMode.description: String
+    get() = when (this) {
+        ThemeMode.SYSTEM -> "根据系统外观自动切换"
+        ThemeMode.DARK -> "始终使用深色主题"
+        ThemeMode.LIGHT -> "始终使用浅色主题"
+    }

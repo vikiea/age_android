@@ -11,14 +11,22 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.fragment.app.FragmentActivity
+import com.age.android.core.data.SettingsDataStore
+import com.age.android.core.data.ThemeMode
 import com.age.android.navigation.AppNavigation
 import com.age.android.ui.theme.AgeAndroidTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
+
+    @Inject
+    lateinit var settingsDataStore: SettingsDataStore
 
     private val sharedUris = mutableStateOf<List<Uri>?>(null)
 
@@ -27,7 +35,8 @@ class MainActivity : FragmentActivity() {
         handleShareIntent(intent)
         enableEdgeToEdge()
         setContent {
-            AgeAndroidTheme {
+            val themeMode by settingsDataStore.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
+            AgeAndroidTheme(themeMode = themeMode) {
                 AppNavigation(
                     sharedUris = sharedUris.value,
                     onSharedUrisConsumed = { sharedUris.value = null }
