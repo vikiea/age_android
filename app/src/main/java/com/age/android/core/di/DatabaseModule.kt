@@ -10,6 +10,7 @@ import androidx.room.Room
 import com.age.android.core.data.AppDatabase
 import com.age.android.core.data.KeyDao
 import com.age.android.core.data.MIGRATION_1_2
+import com.age.android.core.data.MIGRATION_2_3
 import com.age.android.core.data.OperationDao
 import dagger.Module
 import dagger.Provides
@@ -25,7 +26,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "age_android.db")
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
 
     @Provides

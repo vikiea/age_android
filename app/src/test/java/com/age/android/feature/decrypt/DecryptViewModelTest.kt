@@ -8,6 +8,7 @@ import com.age.android.core.data.SettingsDataStore
 import com.age.android.core.file.FileSelectionKind
 import com.age.android.core.file.SelectedFileItem
 import com.age.android.core.file.SelectedFileLeaf
+import com.age.android.core.model.OperationStatus
 import com.age.android.core.util.FileHelper
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
@@ -18,28 +19,35 @@ import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DecryptViewModelTest {
     private lateinit var viewModel: DecryptViewModel
+    private lateinit var ageEngine: AgeEngine
+    private lateinit var operationRepository: OperationRepository
+    private lateinit var settingsDataStore: SettingsDataStore
     private lateinit var fileHelper: FileHelper
     private val testDispatcher = StandardTestDispatcher()
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        val ageEngine = mockk<AgeEngine>()
+        ageEngine = mockk()
         val keyRepository = mockk<KeyRepository> { every { getAllKeys() } returns flowOf(emptyList()) }
-        val operationRepository = mockk<OperationRepository> {
+        operationRepository = mockk {
             coEvery { insertOperation(any()) } returns 1L
             coEvery { updateOperation(any()) } just Runs
         }
         fileHelper = mockk()
-        val settingsDataStore = mockk<SettingsDataStore> {
+        settingsDataStore = mockk {
             every { outputDirUri } returns flowOf(null)
             every { duplicateStrategy } returns flowOf(DuplicateStrategy.RENAME)
             coEvery { getDecryptUsePassphraseOnce() } returns true
             coEvery { getSelectedPrivateKeyOnce() } returns ""
+            coEvery { getConcurrencyOnce() } returns 1
+            coEvery { getDuplicateStrategyOnce() } returns DuplicateStrategy.RENAME
             coEvery { setDecryptUsePassphrase(any()) } just Runs
             coEvery { setSelectedPrivateKey(any()) } just Runs
         }
@@ -90,5 +98,41 @@ class DecryptViewModelTest {
         assertEquals(1, viewModel.uiState.value.files.size)
         assertEquals(FileSelectionKind.FOLDER, viewModel.uiState.value.files.first().kind)
         assertEquals("sealed/archive.tar.age", viewModel.uiState.value.files.first().files.first().relativePath)
+    }
+
+    @Test
+    fun `successful decrypt records output files for history detail tree`() = runTest(testDispatcher) {
+        val uri = mockk<android.net.Uri>()
+        val cacheDir = Files.createTempDirectory("age-decrypt-history-test").toFile()
+        val sourceTemp = File(cacheDir, "source.age").apply { writeText("cipher") }
+        val decryptedTemp = File(cacheDir, "dec_out.tmp")
+
+        every { fileHelper.getFileName(uri) } returns "docs.tar.age"
+        every { fileHelper.getCacheDir() } returns cacheDir
+        every { fileHelper.streamUriToTemp(uri, "dec_src") } returns sourceTemp
+        every { fileHelper.deleteTempFile(any()) } answers { firstArg<File>().delete(); Unit }
+        every { fileHelper.getFallbackDecryptedDir() } returns File(cacheDir, "decrypted")
+        every { fileHelper.untarStreaming(any(), any()) } answers {
+            secondArg<(String, java.io.InputStream, Long) -> Unit>()
+                .invoke("docs/readme.txt", "hello".byteInputStream(), 5L)
+            Unit
+        }
+        every { fileHelper.writeStreamToDirRelative(any(), "docs/readme.txt", any(), DuplicateStrategy.RENAME) } returns "docs/readme.txt"
+        coEvery { ageEngine.decryptStreamToFile(sourceTemp.absolutePath, any(), "pw") } answers {
+            decryptedTemp.writeText("tar")
+            Unit
+        }
+
+        viewModel.addFiles(listOf(uri))
+        viewModel.setPassphrase("pw")
+
+        viewModel.startDecrypt()
+        advanceUntilIdle()
+
+        coVerify {
+            operationRepository.updateOperation(match {
+                it.status == OperationStatus.SUCCESS && it.outputFiles == listOf("docs/readme.txt")
+            })
+        }
     }
 }

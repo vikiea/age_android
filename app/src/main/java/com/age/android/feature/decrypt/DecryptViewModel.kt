@@ -282,8 +282,9 @@ class DecryptViewModel @Inject constructor(
                 val success = successCount.get()
                 val fail = failCount.get()
                 val outDir = getOutputDir()
-                operationRepository.updateOperation(record.copy(id = recordId, status = OperationStatus.SUCCESS, outputPath = outDir.absolutePath))
-                _uiState.update { it.copy(isProcessing = false, result = "解密完成！成功: $success, 失败: $fail", progress = 1f, outputFiles = outputNames.toList(), outputDir = outDir.absolutePath) }
+                val outputFiles = outputNames.toList()
+                operationRepository.updateOperation(record.copy(id = recordId, status = OperationStatus.SUCCESS, outputPath = outDir.absolutePath, outputFiles = outputFiles))
+                _uiState.update { it.copy(isProcessing = false, result = "解密完成！成功: $success, 失败: $fail", progress = 1f, outputFiles = outputFiles, outputDir = outDir.absolutePath) }
             } catch (e: Exception) {
                 operationRepository.updateOperation(record.copy(id = recordId, status = OperationStatus.FAILED, errorMessage = e.message))
                 _uiState.update { it.copy(isProcessing = false, error = "解密失败: ${e.message}") }

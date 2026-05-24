@@ -9,6 +9,7 @@ import com.age.android.core.file.FileSelectionKind
 import com.age.android.core.file.SelectedFileItem
 import com.age.android.core.file.SelectedFileLeaf
 import com.age.android.core.model.EncryptMode
+import com.age.android.core.model.OperationStatus
 import com.age.android.core.util.FileHelper
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
@@ -158,5 +159,33 @@ class EncryptViewModelTest {
             )
         }
         coVerify(exactly = 0) { ageEngine.tarSingleFile(any(), any(), any()) }
+    }
+
+    @Test
+    fun `successful encryption records output files for history detail tree`() = runTest(testDispatcher) {
+        val uri = mockk<android.net.Uri>()
+        val cacheDir = Files.createTempDirectory("age-history-output-test").toFile()
+        val sourceTemp = File(cacheDir, "source.tmp").apply { writeText("plain") }
+
+        every { fileHelper.getFileName(uri) } returns "plain.txt"
+        every { fileHelper.getCacheDir() } returns cacheDir
+        every { fileHelper.streamUriToTemp(uri, "src_0") } returns sourceTemp
+        every { fileHelper.deleteTempFile(any()) } answers { firstArg<File>().delete(); Unit }
+        every { fileHelper.getFallbackEncryptedDir() } returns File(cacheDir, "encrypted")
+        every { fileHelper.copyFileToDirRelative(any(), "archive.tar.gz.age", any(), DuplicateStrategy.RENAME) } returns "archive.tar.gz.age"
+        coEvery { ageEngine.tarGzipFilesDelim(any(), any(), any()) } just Runs
+        coEvery { ageEngine.encryptStreamToFile(any(), any(), "pw") } just Runs
+
+        viewModel.addFiles(listOf(uri))
+        viewModel.setPassphrase("pw")
+
+        viewModel.startEncrypt()
+        advanceUntilIdle()
+
+        coVerify {
+            operationRepository.updateOperation(match {
+                it.status == OperationStatus.SUCCESS && it.outputFiles == listOf("archive.tar.gz.age")
+            })
+        }
     }
 }

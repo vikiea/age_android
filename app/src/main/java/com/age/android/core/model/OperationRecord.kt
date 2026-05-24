@@ -23,6 +23,7 @@ data class OperationRecord(
     val mode: EncryptMode,
     val inputFiles: List<String>,
     val outputPath: String,
+    val outputFiles: List<String> = emptyList(),
     val recipientInfo: String,
     val status: OperationStatus,
     val errorMessage: String? = null,

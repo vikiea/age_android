@@ -185,7 +185,7 @@ private fun FileInfoSection(
 ) {
     DetailSection(title = "文件信息", backdrop = backdrop) {
         Text(
-            "输入文件:",
+            "输入文件",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -199,11 +199,34 @@ private fun FileInfoSection(
         }
         HorizontalDivider()
         Text(
-            "输出路径",
+            "输出文件",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Text(op.outputPath, style = MaterialTheme.typography.bodyMedium)
+        if (op.outputFiles.isNotEmpty()) {
+            GlassTonalSurface(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    FilePathTreeView(paths = op.outputFiles)
+                }
+            }
+            Text(
+                "保存位置: ${op.outputPath}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        } else {
+            Text(
+                op.outputPath,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
