@@ -1,6 +1,6 @@
 # Age Android
 
-Android native app wrapping the [age](https://filippo.io/age) encryption tool with streaming I/O and batch processing.
+Android native app wrapping the [age](https://filippo.io/age) encryption tool with streaming I/O, batch processing, and a local-first Compose interface.
 
 ## Features
 
@@ -9,48 +9,67 @@ Android native app wrapping the [age](https://filippo.io/age) encryption tool wi
 - **Passphrase & public key encryption**: Support both scrypt passphrase and X25519 key pair
 - **Streaming I/O**: Entire pipeline uses streaming — handles 1GB+ files without OOM
 - **Go engine**: tar/tar.gz compression and age encryption via gomobile, ~32KB memory footprint
-- **Custom save directory**: SAF-based directory picker with persistent URI permission
+- **Android-native intake and sharing**: Open files from the system picker, folders, or Android share intents, then share encrypted/decrypted outputs back out
+- **Custom save directory**: SAF-based directory picker with persistent URI permission and `encrypted/` / `decrypted/` subfolders
+- **User controls**: Theme mode, duplicate handling, compression, and processing concurrency are configurable from Settings
 - **Key management**: Generate, import, and manage X25519 key pairs
-- **Operation history**: Track all encryption/decryption operations
+- **Protected key detail**: Private keys can be revealed behind device biometric authentication when available
+- **Operation history**: Track all encryption/decryption operations and inspect operation details
+- **In-app updates and support**: Check GitHub Releases for APK updates, with optional donation QR support that does not change any app capability
+- **Liquid Glass-inspired UI**: Compose Material 3 surfaces with backdrop-aware glass components and graceful fallback on older renderers
 
 ## Architecture
 
 ```
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│  Compose UI  │───▶│  ViewModel   │───▶│  Repository  │
-│  (Material3) │    │  (MVVM+Flow) │    │  (Room+SAF)  │
+│ Compose UI   │───▶│  ViewModel   │───▶│  Repository  │
+│ Material3 +  │    │  MVVM + Flow │    │  Room + SAF  │
+│ Glass system │    │              │    │              │
 └──────────────┘    └──────┬───────┘    └──────────────┘
                            │
-                    ┌──────▼───────┐
-                    │  Go Engine   │
-                    │  (gomobile)  │
-                    └──────────────┘
+              ┌────────────▼────────────┐
+              │ Go age engine (gomobile)│
+              └────────────┬────────────┘
+                           │
+              ┌────────────▼────────────┐
+              │ FileProvider / Android  │
+              │ SAF / DownloadManager   │
+              └─────────────────────────┘
 ```
 
-- **UI**: Jetpack Compose + Material Design 3
+- **UI**: Jetpack Compose + Material Design 3, with local `ui/glass` components backed by `io.github.kyant0:backdrop`
+- **Navigation**: Navigation Compose routes for encryption, decryption, keys, history, detail, and settings screens
 - **DI**: Hilt
-- **DB**: Room (key storage, operation history)
+- **DB**: Room (key storage, operation history, migrations)
 - **Settings**: DataStore Preferences
-- **Engine**: Go `filippo.io/age` compiled via gomobile → AAR
+- **File access**: Android Storage Access Framework plus `FileProvider` for output sharing and APK install intents
+- **Engine**: Go `filippo.io/age` compiled via gomobile → AAR / JNI libs
+- **Updates**: OkHttp + GitHub Release API + DownloadManager
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Language | Kotlin, Go |
-| UI | Jetpack Compose, Material3 |
-| DI | Hilt |
-| DB | Room |
-| Settings | DataStore Preferences |
-| Crypto | [filippo.io/age](https://filippo.io/age) |
-| Native | gomobile → AAR |
-| Build | Gradle 8.14, Go 1.25+ |
+| App version | 2.0.0 (`versionCode` 5) |
+| Language | Kotlin 2.3.10, Go 1.25 |
+| Android | compileSdk 36, minSdk 26, targetSdk 35 |
+| UI | Jetpack Compose BOM 2026.02.00, Material3, `io.github.kyant0:backdrop` |
+| Navigation | Navigation Compose 2.8.5 |
+| DI | Hilt 2.58, Hilt Navigation Compose 1.3.0 |
+| DB | Room 2.8.4 |
+| Settings | DataStore Preferences 1.1.1 |
+| File / archive | AndroidX DocumentFile, Apache Commons Compress, FileProvider |
+| Networking | OkHttp 4.12.0 for update checks |
+| Security UX | AndroidX Biometric 1.1.0 for private-key reveal |
+| Crypto | [filippo.io/age](https://filippo.io/age) 1.2.1 |
+| Native | gomobile → AAR / extracted JNI libs |
+| Build | Gradle 8.14, Android Gradle Plugin 8.13.2 |
 
 ## Build
 
 ### Prerequisites
 
-- Android SDK (min SDK 26, target SDK 35)
+- Android SDK (compile SDK 36, min SDK 26, target SDK 35)
 - Go 1.25+ with gomobile (`go install golang.org/x/mobile/cmd/gomobile@latest`)
 - NDK 27+ (for gomobile)
 
@@ -85,13 +104,15 @@ Run `make help` for all available commands.
 | Batch pack | No | `.tar.age` |
 | Separate | — | `.tar.age` |
 
-All files are tar-packed before encryption to hide original file extensions.
+All files are tar-packed before encryption to hide original file extensions. Decryption restores tar/tar.gz archives when detected, and falls back to single-file `.age` output for non-archive payloads.
 
 ## Privacy
 
 Age Android does not collect, transmit, or store any user data. All operations are performed locally on your device.
 
-[Privacy Policy](https://vikiea.github.io/age_android/privacy-policy.html)
+[Privacy Policy](https://vikiea.github.io/age_android/privacy/)
+
+[Official Website](https://vikiea.github.io/age_android/)
 
 ## Support
 

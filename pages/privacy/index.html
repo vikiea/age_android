@@ -12,6 +12,7 @@ See LICENSE for details.
   <meta name="description" content="Age Android 不收集、不上传、不传输任何用户文件、密钥或个人数据。">
   <meta name="theme-color" content="#ffffff">
   <link rel="canonical" href="https://vikiea.github.io/age_android/privacy/">
+  <link rel="icon" href="../assets/app-icon.svg" type="image/svg+xml">
   <style>
     :root {
       color-scheme: light;
@@ -82,15 +83,16 @@ See LICENSE for details.
       width: 38px;
       height: 38px;
       border-radius: 12px;
-      display: grid;
-      place-items: center;
+      display: block;
+      flex: 0 0 auto;
+      overflow: hidden;
       background: var(--green);
-      color: #ffffff;
     }
 
-    .brand-mark svg {
-      width: 24px;
-      height: 24px;
+    .brand-mark img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
     .home-link {
@@ -162,9 +164,7 @@ See LICENSE for details.
     <div class="header-inner">
       <a class="brand" href="../" aria-label="Age Android">
         <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 64 64" role="img">
-            <path fill="currentColor" d="M32 8 54 32 32 56 32 40 10 40 10 24 32 24 32 8Z"/>
-          </svg>
+          <img src="../assets/app-icon.svg" width="38" height="38" alt="">
         </span>
         <span>Age Android</span>
       </a>

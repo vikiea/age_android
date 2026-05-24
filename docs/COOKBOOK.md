@@ -18,7 +18,7 @@
 | 工具 | 版本 | 安装方式 |
 |------|------|----------|
 | Go | >= 1.25 | `brew install go` |
-| Android SDK | API 35 | Android Studio 或 commandlinetools |
+| Android SDK | API 36（编译），API 35（目标） | Android Studio 或 commandlinetools |
 | Android NDK | 27.x | `sdkmanager "ndk;27.2.12479018"` |
 | JDK | 11+ | `brew install openjdk@17` |
 | gomobile | latest | `go install golang.org/x/mobile/cmd/gomobile@latest` |
@@ -61,26 +61,35 @@ age_android/
 ├── app/                          # Android 应用模块
 │   ├── build.gradle.kts          # 应用构建配置
 │   └── src/main/java/com/age/android/
+│       ├── feature/              # 加密、解密、密钥、历史、设置界面
 │       ├── core/
-│       │   ├── age/AgeEngine.kt  # 引擎接口定义
-│       │   └── di/               # Hilt DI 模块
-│       ├── ui/                   # Compose UI
-│       └── data/                 # Room 数据库
+│       │   ├── data/             # Room、DataStore、Repository
+│       │   ├── di/               # Hilt DI 模块
+│       │   ├── model/            # 加解密、密钥、历史记录模型
+│       │   ├── update/           # GitHub Release 更新检查
+│       │   └── util/             # SAF/FileProvider/归档工具
+│       └── ui/
+│           ├── glass/            # Liquid Glass 风格组件
+│           └── theme/            # Material3 主题
 ├── age-engine/                   # Go 引擎封装模块
 │   ├── build.gradle.kts          # 模块构建配置
 │   ├── libs/
-│   │   └── age-engine.aar        # gomobile 编译产物 (8.5MB)
+│   │   ├── age-engine.aar        # gomobile 编译产物
+│   │   └── age-engine-classes.jar # 从 AAR 提取的桥接类
+│   ├── src/main/jniLibs/         # 从 AAR 提取的多 ABI native 库
 │   └── src/main/
 │       ├── go/
 │       │   ├── age_engine.go     # Go 源码 (filippo.io/age 封装)
 │       │   ├── go.mod
 │       │   └── go.sum
-│       └── java/com/age/engine/
-│           └── AgeEngineImpl.kt  # Kotlin 桥接实现
+│       └── java/
+│           ├── com/age/android/core/age/AgeEngine.kt
+│           └── com/age/engine/AgeEngineImpl.kt
 ├── build.gradle.kts              # 根构建配置
 ├── settings.gradle.kts           # 模块声明
 ├── gradle/wrapper/
 │   └── gradle-wrapper.properties # Gradle 8.14
+├── pages/                         # GitHub Pages 官网
 └── docs/
     └── COOKBOOK.md                # 本文档
 ```
@@ -88,15 +97,28 @@ age_android/
 ### 关键依赖关系
 
 ```
-app (Compose + Hilt + Room)
+app (Compose + Material3 + Hilt + Room + DataStore)
  └── age-engine (Android Library)
-      └── age-engine.aar (gomobile 编译的 Go 原生库)
+      ├── age-engine-classes.jar (gomobile 桥接类)
+      └── jniLibs/*/libgojni.so (gomobile 原生库)
            └── filippo.io/age (Go age 加密库)
 ```
 
 ### 文件格式
 
-加密输出格式：`.tar.gz.age`（先压缩后加密，与 bash 脚本参考实现一致）
+- 批量打包：根据设置输出 `.tar.gz.age`（压缩）或 `.tar.age`（不压缩）。
+- 分别加密：每个源文件都会先包进 tar，再输出 `.tar.age`，用于隐藏原始扩展名。
+- 解密：优先按 tar / tar.gz 归档恢复；非归档 `.age` 会按单文件输出。
+- 输出位置：默认进入应用外部文件目录下的 `encrypted/` / `decrypted/`，也可通过 SAF 选择自定义目录。
+
+### v2.0.0 能力边界
+
+- `MainActivity` 接收 `ACTION_SEND` / `ACTION_SEND_MULTIPLE`，根据文件扩展名路由到加密或解密流程。
+- `SettingsScreen` 管理主题、保存位置、重名策略、压缩开关、并发数、更新检查和自愿支持入口。
+- `ui/glass/` 提供 Liquid Glass 风格的 Compose 组件；Backdrop 不可用时会退回普通 Material3 surface。
+- `EncryptViewModel` / `DecryptViewModel` 使用协程、`Semaphore` 和 DataStore 并发设置控制多文件处理。
+- `UpdateChecker` 通过 GitHub Release API 检查更新，并使用 DownloadManager 下载 APK。
+- 私钥详情页集成 AndroidX Biometric，用于在展示私钥前做本机认证。
 
 ---
 
@@ -150,7 +172,7 @@ gomobile bind \
 ```bash
 # 检查 AAR 文件
 ls -lh age-engine/libs/age-engine.aar
-# 应该约 8.5MB
+# 大小会随 gomobile/Go 版本和 ABI 变化
 
 # 查看 AAR 内容
 unzip -l age-engine/libs/age-engine.aar
@@ -162,6 +184,8 @@ unzip -l age-engine/libs/age-engine.aar
 # - jni/x86/libgojni.so
 # - jni/x86_64/libgojni.so
 ```
+
+项目里的 `make engine` 会在生成 AAR 后自动提取 `classes.jar` 到 `age-engine/libs/age-engine-classes.jar`，并把 `jni/` 复制到 `age-engine/src/main/jniLibs/`。当前 Gradle 模块依赖的是提取后的 classes jar 与 jniLibs。
 
 ### 3.5 gomobile 生成的类
 
@@ -183,7 +207,7 @@ unzip -l age-engine/libs/age-engine.aar
 ./gradlew :app:assembleDebug
 ```
 
-构建产物位置：`app/build/outputs/apk/debug/app-debug.apk`
+构建产物位置：`app/build/outputs/apk/debug/*.apk`。项目已开启 ABI 分包，常用调试包为 `app-arm64-v8a-debug.apk`。
 
 ### 4.2 构建 Release APK
 
@@ -201,15 +225,24 @@ unzip -l age-engine/libs/age-engine.aar
 
 | 配置项 | 值 |
 |--------|-----|
-| compileSdk | 35 |
+| app version | 2.0.0 (`versionCode` 5) |
+| compileSdk | 36 |
 | minSdk | 26 |
 | targetSdk | 35 |
 | Gradle | 8.14 |
-| AGP | 8.7.3 |
-| Kotlin | 2.1.0 |
-| Hilt | 2.53.1 |
-| Compose BOM | 2024.12.01 |
-| Room | 2.6.1 |
+| AGP | 8.13.2 |
+| Kotlin | 2.3.10 |
+| Hilt | 2.58 |
+| KSP | 2.3.8 |
+| Compose BOM | 2026.02.00 |
+| Material3 | Compose BOM 管理 |
+| Backdrop | io.github.kyant0:backdrop:1.0.6 |
+| Room | 2.8.4 |
+| DataStore Preferences | 1.1.1 |
+| Navigation Compose | 2.8.5 |
+| Lifecycle | 2.10.0 |
+| OkHttp | 4.12.0 |
+| Biometric | 1.1.0 |
 
 ---
 
@@ -256,7 +289,7 @@ $ANDROID_HOME/platform-tools/adb devices
 
 ```bash
 # 安装 APK
-$ANDROID_HOME/platform-tools/adb install app/build/outputs/apk/debug/app-debug.apk
+$ANDROID_HOME/platform-tools/adb install app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 
 # 启动应用
 $ANDROID_HOME/platform-tools/adb shell am start -n com.age.android/.MainActivity
@@ -311,13 +344,19 @@ cd age-engine/src/main/go
 go get golang.org/x/mobile/bind
 ```
 
-### 6.4 Gradle: "Could not find :age-engine.aar"
+### 6.4 Gradle: "Could not find age-engine-classes.jar" 或 native 库缺失
 
-**原因**: AAR 文件路径不正确
+**原因**: 只生成了 gomobile AAR，但还没有把 AAR 内的 `classes.jar` 与 `jni/` 提取到 Android Library 模块使用的位置。
 
-**解决**: 确认文件存在于 `age-engine/libs/age-engine.aar`，且 `build.gradle.kts` 中引用正确：
-```kotlin
-implementation(files("libs/age-engine.aar"))
+**解决**: 使用项目 Makefile 重新构建引擎：
+```bash
+make engine
+```
+
+完成后确认：
+```bash
+ls age-engine/libs/age-engine-classes.jar
+ls age-engine/src/main/jniLibs/arm64-v8a/libgojni.so
 ```
 
 ### 6.5 模拟器: "No space left on device"
@@ -343,29 +382,16 @@ df -h /
 yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 ```
 
-### 6.7 APK 体积优化
+### 6.7 APK 体积与发布包
 
-当前 APK 约 32MB，主要因为包含多架构原生库。优化方案：
+当前配置已经启用 ABI 分包并保留 universal APK：
 
-1. **ABI 分包** - 在 `app/build.gradle.kts` 中添加：
-```kotlin
-splits {
-    abi {
-        isEnable = true
-        reset()
-        include("arm64-v8a", "armeabi-v7a")
-        isUniversalApk = false
-    }
-}
-```
+- `arm64-v8a`
+- `armeabi-v7a`
+- `x86_64`
+- `universal`
 
-2. **启用 minify** - Release 构建时启用代码压缩：
-```kotlin
-release {
-    isMinifyEnabled = true
-    proguardFiles(...)
-}
-```
+Release 构建已启用 R8 minify 与 resource shrink。发布 GitHub Release 时优先提供 universal APK 作为默认下载，同时保留 ABI-specific APK 以降低单设备下载体积。
 
 ---
 
@@ -374,16 +400,14 @@ release {
 ### 完整构建流程（一键）
 
 ```bash
-# 1. 编译 Go 引擎
-cd age-engine/src/main/go && \
-gomobile bind -target=android -androidapi=26 -o ../../libs/age-engine.aar -javapkg=com.age.engine . && \
-cd ../../..
+# 1. 编译 Go 引擎并提取 classes.jar / jniLibs
+make engine
 
 # 2. 构建 APK
 ./gradlew :app:assembleDebug
 
 # 3. 安装到模拟器
-$ANDROID_HOME/platform-tools/adb install -r app/build/outputs/apk/debug/app-debug.apk
+$ANDROID_HOME/platform-tools/adb install -r app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 
 # 4. 启动应用
 $ANDROID_HOME/platform-tools/adb shell am start -n com.age.android/.MainActivity
@@ -393,6 +417,9 @@ $ANDROID_HOME/platform-tools/adb shell am start -n com.age.android/.MainActivity
 
 ```bash
 # 构建
+make engine                            # Go 引擎 AAR + classes.jar + jniLibs
+make build                             # Debug APK
+make release                           # Release APKs
 ./gradlew :app:assembleDebug           # Debug APK
 ./gradlew :app:assembleRelease         # Release APK
 ./gradlew clean                        # 清理
@@ -405,7 +432,6 @@ adb logcat                             # 查看日志
 adb shell pm list packages | grep age  # 确认安装
 
 # Go 引擎
-cd age-engine/src/main/go
-gomobile bind -target=android -androidapi=26 -o ../../libs/age-engine.aar -javapkg=com.age.engine .
+make engine
 go clean -modcache                     # 清理模块缓存
 ```
