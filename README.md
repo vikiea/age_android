@@ -5,7 +5,7 @@ Android native app wrapping the [age](https://filippo.io/age) encryption tool wi
 ## Features
 
 - **Batch encryption**: Pack multiple files into tar/tar.gz, then encrypt as `.tar.gz.age` or `.tar.age`
-- **Separate encryption**: Encrypt individual files as `.tar.age` (original extension hidden)
+- **Separate encryption**: Encrypt individual files or selected subfolders as standalone `.tar.age` units (original extensions hidden)
 - **Folder tree handling**: Selected subfolders stay as removable units, with nested files shown and restored in a file-manager style tree
 - **Passphrase & public key encryption**: Support both scrypt passphrase and X25519 key pair
 - **Streaming I/O**: Entire pipeline uses streaming — handles 1GB+ files without OOM
@@ -51,7 +51,7 @@ Android native app wrapping the [age](https://filippo.io/age) encryption tool wi
 
 | Layer | Technology |
 |-------|-----------|
-| App version | 2.1.0 (`versionCode` 6) |
+| App version | 2.1.1 (`versionCode` 7) |
 | Language | Kotlin 2.3.10, Go 1.25 |
 | Android | compileSdk 36, minSdk 26, targetSdk 35 |
 | UI | Jetpack Compose BOM 2026.02.00, Material3, `io.github.kyant0:backdrop` |
@@ -105,7 +105,7 @@ Run `make help` for all available commands.
 | Batch pack | No | `.tar.age` |
 | Separate | — | `.tar.age` |
 
-All files are tar-packed before encryption to hide original file extensions. Folder selections keep their relative paths in the archive, and decryption restores tar/tar.gz archives into the same tree structure when detected. Non-archive `.age` payloads fall back to single-file output.
+All files are tar-packed before encryption to hide original file extensions. In separate mode, selected folders are first packed as their own tar units before encryption. Folder selections keep their relative paths in the archive, and decryption restores tar/tar.gz archives into the same tree structure when detected. Non-archive `.age` payloads fall back to single-file output.
 
 ## Privacy
 

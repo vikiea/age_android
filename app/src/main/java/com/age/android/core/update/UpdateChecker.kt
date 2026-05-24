@@ -15,6 +15,7 @@ import android.util.Log
 import androidx.core.content.FileProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -32,6 +33,11 @@ data class ReleaseInfo(
     val apkUrl: String,
     val apkSize: Long
 )
+
+sealed class ApkDownloadResult {
+    data class Completed(val apkFile: File) : ApkDownloadResult()
+    data class Failed(val message: String) : ApkDownloadResult()
+}
 
 @Singleton
 class UpdateChecker @Inject constructor(
@@ -170,6 +176,69 @@ class UpdateChecker @Inject constructor(
             .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "age-v$versionName.apk")
             .setMimeType("application/vnd.android.package-archive")
         return dm.enqueue(request)
+    }
+
+    suspend fun awaitApkDownload(downloadId: Long, versionName: String): ApkDownloadResult =
+        withContext(Dispatchers.IO) {
+            val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            var result: ApkDownloadResult? = null
+            while (result == null) {
+                result = queryDownload(dm, downloadId, versionName)
+                if (result == null) delay(1000)
+            }
+            result
+        }
+
+    private fun getDownloadedApkFile(versionName: String): File {
+        val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+        return File(dir, "age-v$versionName.apk")
+    }
+
+    private fun queryDownload(
+        downloadManager: DownloadManager,
+        downloadId: Long,
+        versionName: String
+    ): ApkDownloadResult? {
+        val query = DownloadManager.Query().setFilterById(downloadId)
+        val cursor = downloadManager.query(query) ?: return ApkDownloadResult.Failed("无法查询下载状态")
+        cursor.use {
+            if (!it.moveToFirst()) {
+                return if (getDownloadedApkFile(versionName).exists()) {
+                    ApkDownloadResult.Completed(getDownloadedApkFile(versionName))
+                } else {
+                    ApkDownloadResult.Failed("下载任务不存在")
+                }
+            }
+
+            val statusIndex = it.getColumnIndex(DownloadManager.COLUMN_STATUS)
+            if (statusIndex < 0) return ApkDownloadResult.Failed("无法读取下载状态")
+
+            return when (it.getInt(statusIndex)) {
+                DownloadManager.STATUS_SUCCESSFUL -> ApkDownloadResult.Completed(
+                    resolveDownloadedApkFile(it, versionName)
+                )
+                DownloadManager.STATUS_FAILED -> {
+                    val reasonIndex = it.getColumnIndex(DownloadManager.COLUMN_REASON)
+                    val reason = if (reasonIndex >= 0) it.getInt(reasonIndex).toString() else "未知原因"
+                    ApkDownloadResult.Failed("下载失败: $reason")
+                }
+                else -> null
+            }
+        }
+    }
+
+    private fun resolveDownloadedApkFile(cursor: android.database.Cursor, versionName: String): File {
+        val localUriIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+        if (localUriIndex >= 0) {
+            val localUri = cursor.getString(localUriIndex)
+            val file = localUri
+                ?.let { Uri.parse(it) }
+                ?.takeIf { it.scheme == "file" }
+                ?.path
+                ?.let(::File)
+            if (file != null) return file
+        }
+        return getDownloadedApkFile(versionName)
     }
 
     /** Find a reachable download URL by probing proxies */

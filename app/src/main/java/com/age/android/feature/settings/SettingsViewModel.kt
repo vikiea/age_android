@@ -5,7 +5,6 @@
  */
 package com.age.android.feature.settings
 
-import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -14,6 +13,7 @@ import androidx.lifecycle.viewModelScope
 import com.age.android.core.data.DuplicateStrategy
 import com.age.android.core.data.SettingsDataStore
 import com.age.android.core.data.ThemeMode
+import com.age.android.core.update.ApkDownloadResult
 import com.age.android.core.update.ReleaseInfo
 import com.age.android.core.update.UpdateChecker
 import com.age.android.core.util.FileHelper
@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.io.File
 import javax.inject.Inject
 
 data class UpdateState(
@@ -91,16 +90,24 @@ class SettingsViewModel @Inject constructor(
         val release = _updateState.value.releaseInfo ?: return
         val downloadId = updateChecker.downloadApk(release.apkUrl, release.versionName)
         _updateState.update { it.copy(isDownloading = true, downloadId = downloadId) }
+        awaitDownloadResult(downloadId, release.versionName)
     }
 
-    fun onDownloadComplete(downloadId: Long) {
-        if (downloadId != _updateState.value.downloadId) return
-        _updateState.update { it.copy(isDownloading = false) }
-        // Find the downloaded APK and install
-        val dir = context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS)
-        val apkFile = File(dir, "age-v${_updateState.value.releaseInfo?.versionName}.apk")
-        if (apkFile.exists()) {
-            updateChecker.installApk(apkFile)
+    private fun awaitDownloadResult(downloadId: Long, versionName: String) {
+        viewModelScope.launch {
+            when (val result = updateChecker.awaitApkDownload(downloadId, versionName)) {
+                is ApkDownloadResult.Completed -> {
+                    if (downloadId != _updateState.value.downloadId) return@launch
+                    _updateState.update { it.copy(isDownloading = false, error = null) }
+                    if (result.apkFile.exists()) {
+                        updateChecker.installApk(result.apkFile)
+                    }
+                }
+                is ApkDownloadResult.Failed -> {
+                    if (downloadId != _updateState.value.downloadId) return@launch
+                    _updateState.update { it.copy(isDownloading = false, error = result.message) }
+                }
+            }
         }
     }
 

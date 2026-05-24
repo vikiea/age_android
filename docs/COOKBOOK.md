@@ -107,14 +107,14 @@ app (Compose + Material3 + Hilt + Room + DataStore)
 ### 文件格式
 
 - 批量打包：根据设置输出 `.tar.gz.age`（压缩）或 `.tar.age`（不压缩）。
-- 分别加密：每个源文件都会先包进 tar，再输出 `.tar.age`，用于隐藏原始扩展名；来自子文件夹的文件保留相对路径。
+- 分别加密：每个源文件都会先包进 tar，再输出 `.tar.age`，用于隐藏原始扩展名；选中的子文件夹会先作为独立 tar 单元再加密为一个 `.tar.age`，并保留内部相对路径。
 - 解密：优先按 tar / tar.gz 归档恢复；归档内目录会恢复为文件树，非归档 `.age` 会按单文件输出。
 - 输出位置：默认进入应用外部文件目录下的 `encrypted/` / `decrypted/`，也可通过 SAF 选择自定义目录。
 
-### v2.1.0 能力边界
+### v2.1.1 能力边界
 
 - `MainActivity` 接收 `ACTION_SEND` / `ACTION_SEND_MULTIPLE`，根据文件扩展名路由到加密或解密流程。
-- 加密/解密选择文件夹时，根目录下的每个子文件夹作为独立选择单位，可单独移除；展示和结果面板均使用文件树视图。
+- 加密/解密选择文件夹时，根目录下的每个子文件夹作为独立选择单位，可单独移除；展示和结果面板均使用文件树视图。分别加密模式会将选中的子文件夹先打成一个 tar，再加密为独立 `.tar.age` 输出。
 - `FileHelper` 递归读取 SAF 目录，并在本地输出目录或自定义 SAF 输出目录中创建嵌套子目录。
 - `SettingsScreen` 管理主题、保存位置、重名策略、压缩开关、并发数、更新检查和自愿支持入口。
 - `ui/glass/` 提供 Liquid Glass 风格的 Compose 组件；Backdrop 不可用时会退回普通 Material3 surface。
@@ -227,7 +227,7 @@ unzip -l age-engine/libs/age-engine.aar
 
 | 配置项 | 值 |
 |--------|-----|
-| app version | 2.1.0 (`versionCode` 6) |
+| app version | 2.1.1 (`versionCode` 7) |
 | compileSdk | 36 |
 | minSdk | 26 |
 | targetSdk | 35 |
@@ -393,7 +393,7 @@ yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
 - `x86_64`
 - `universal`
 
-Release 构建已启用 R8 minify 与 resource shrink。发布 GitHub Release 时优先提供 universal APK 作为默认下载，同时保留 ABI-specific APK 以降低单设备下载体积。
+Release 构建已启用 R8 minify 与 resource shrink。发布 GitHub Release 时优先提供 universal APK 作为默认下载，同时保留 ABI-specific APK 以降低单设备下载体积。`make release` 会额外检查 gomobile `go.Seq` 运行时类名和关键 native 入口没有被 R8 改名或裁剪。
 
 ---
 

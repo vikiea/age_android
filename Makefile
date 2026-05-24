@@ -45,6 +45,7 @@ full: engine rebuild ## Rebuild engine + clean build debug
 .PHONY: release
 release: ## Build release APK (signed, R8 optimized)
 	./gradlew :app:assembleRelease
+	bash scripts/check-gomobile-r8.sh
 	@echo "✓ Release APKs:"
 	@ls -lh $(APP_RELEASE_DIR)/*.apk
 

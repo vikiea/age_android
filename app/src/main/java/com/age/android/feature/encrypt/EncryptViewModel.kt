@@ -349,51 +349,28 @@ class EncryptViewModel @Inject constructor(
         val failCount = AtomicInteger(0)
         val processedCount = AtomicInteger(0)
         val outputNames = java.util.concurrent.ConcurrentLinkedQueue<String>()
-        val files = state.inputLeaves()
+        val units = state.files
 
         coroutineScope {
             val semaphore = Semaphore(concurrency)
-            val totalFiles = files.size
-            files.mapIndexed { index, file ->
+            val totalFiles = units.sumOf { it.files.size }
+            units.mapIndexed { index, item ->
                 async {
                     semaphore.withPermit {
-                        var sourceTemp: File? = null
-                        var tarTemp: File? = null
-                        var encryptedTemp: File? = null
                         try {
-                            sourceTemp = fileHelper.streamUriToTemp(file.uri, "src")
-                            val tarPath = File(fileHelper.getCacheDir(), "single_${System.currentTimeMillis()}_${index}.tar")
-                            ageEngine.tarSingleFile(sourceTemp.absolutePath, file.name, tarPath.absolutePath)
-                            tarTemp = tarPath
-                            sourceTemp.let { fileHelper.deleteTempFile(it) }
-                            sourceTemp = null
-
-                            encryptedTemp = File(fileHelper.getCacheDir(), "enc_${System.currentTimeMillis()}_${index}.tmp")
-
-                            if (state.usePassphrase) {
-                                ageEngine.encryptStreamToFile(tarTemp.absolutePath, encryptedTemp.absolutePath, state.passphrase)
-                            } else {
-                                ageEngine.encryptStreamToFileWithKey(tarTemp.absolutePath, encryptedTemp.absolutePath, state.selectedPublicKey)
-                            }
-
-                            val outName = encryptedRelativePath(file.relativePath)
-                            val actualName = writeOutputFile(outName, encryptedTemp)
+                            val actualName = encryptSeparateUnit(state, item, index)
                             successCount.incrementAndGet()
                             outputNames.add(actualName)
                         } catch (_: Exception) {
                             failCount.incrementAndGet()
-                        } finally {
-                            sourceTemp?.let { fileHelper.deleteTempFile(it) }
-                            tarTemp?.let { fileHelper.deleteTempFile(it) }
-                            encryptedTemp?.let { fileHelper.deleteTempFile(it) }
                         }
-                        val done = processedCount.incrementAndGet()
+                        val done = processedCount.addAndGet(item.files.size)
                         _uiState.update {
                             it.copy(
                                 processedCount = done,
                                 successCount = successCount.get(),
                                 failCount = failCount.get(),
-                                progress = done.toFloat() / totalFiles
+                                progress = if (totalFiles == 0) 1f else done.toFloat() / totalFiles
                             )
                         }
                         yield()
@@ -402,6 +379,44 @@ class EncryptViewModel @Inject constructor(
             }.awaitAll()
         }
         return outputNames.toList()
+    }
+
+    private suspend fun encryptSeparateUnit(state: EncryptUiState, item: FileItem, index: Int): String {
+        val sourceTemps = mutableListOf<File>()
+        var tarTemp: File? = null
+        var encryptedTemp: File? = null
+        try {
+            item.files.forEach { leaf ->
+                sourceTemps.add(fileHelper.streamUriToTemp(leaf.uri, "src"))
+            }
+
+            val tarPath = File(fileHelper.getCacheDir(), "single_${System.currentTimeMillis()}_${index}.tar")
+            if (item.kind == FileSelectionKind.FOLDER) {
+                val pathsDelim = sourceTemps.joinToString("\n") { it.absolutePath }
+                val namesDelim = item.files.joinToString("\n") { it.relativePath }
+                ageEngine.tarFilesDelim(pathsDelim, namesDelim, tarPath.absolutePath)
+            } else {
+                val leaf = item.files.firstOrNull() ?: throw Exception("空文件")
+                ageEngine.tarSingleFile(sourceTemps.first().absolutePath, leaf.name, tarPath.absolutePath)
+            }
+            tarTemp = tarPath
+            sourceTemps.forEach { fileHelper.deleteTempFile(it) }
+            sourceTemps.clear()
+
+            encryptedTemp = File(fileHelper.getCacheDir(), "enc_${System.currentTimeMillis()}_${index}.tmp")
+            if (state.usePassphrase) {
+                ageEngine.encryptStreamToFile(tarTemp.absolutePath, encryptedTemp.absolutePath, state.passphrase)
+            } else {
+                ageEngine.encryptStreamToFileWithKey(tarTemp.absolutePath, encryptedTemp.absolutePath, state.selectedPublicKey)
+            }
+
+            val outName = encryptedUnitRelativePath(item)
+            return writeOutputFile(outName, encryptedTemp)
+        } finally {
+            sourceTemps.forEach { fileHelper.deleteTempFile(it) }
+            tarTemp?.let { fileHelper.deleteTempFile(it) }
+            encryptedTemp?.let { fileHelper.deleteTempFile(it) }
+        }
     }
 
     /**
@@ -447,3 +462,7 @@ private fun encryptedRelativePath(relativePath: String): String {
     val encryptedName = "$baseName.tar.age"
     return if (parent.isBlank()) encryptedName else "$parent/$encryptedName"
 }
+
+private fun encryptedUnitRelativePath(item: FileItem): String =
+    if (item.kind == FileSelectionKind.FOLDER) "${normalizeRelativePath(item.relativePath)}.tar.age"
+    else encryptedRelativePath(item.files.firstOrNull()?.relativePath ?: item.relativePath)

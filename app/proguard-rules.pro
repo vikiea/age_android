@@ -1,6 +1,7 @@
 # ── gomobile (age engine) ──────────────────────────────────
+# libgojni resolves gomobile runtime classes and methods by exact Java names.
+-keep class go.** { *; }
 -keep class com.age.engine.ageengine.** { *; }
--keep class org.golang.** { *; }
 
 # ── Hilt ───────────────────────────────────────────────────
 -keep class dagger.hilt.** { *; }
