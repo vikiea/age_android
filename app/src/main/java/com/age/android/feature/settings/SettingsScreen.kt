@@ -8,8 +8,12 @@ package com.age.android.feature.settings
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -48,6 +52,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -56,9 +62,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.net.toUri
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.age.android.R
 import com.age.android.core.data.DuplicateStrategy
+import com.age.android.core.data.ThemeAccent
 import com.age.android.core.data.ThemeMode
 import com.age.android.core.update.ReleaseInfo
 import com.age.android.ui.glass.GlassBackdrop
@@ -71,6 +79,7 @@ import com.age.android.ui.glass.GlassSurface
 import com.age.android.ui.glass.GlassSwitch
 import com.age.android.ui.glass.GlassTextButton
 import com.age.android.ui.glass.GlassTopBar
+import java.util.Locale
 import com.age.android.ui.glass.GlassTonalSurface
 
 @Composable
@@ -84,6 +93,7 @@ fun SettingsScreen(
     val compressEnabled by viewModel.compressEnabled.collectAsState()
     val concurrency by viewModel.concurrency.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
+    val themeAccent by viewModel.themeAccent.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
     val context = LocalContext.current
     var showDonationDialog by remember { mutableStateOf(false) }
@@ -127,6 +137,13 @@ fun SettingsScreen(
                     selectedValue = themeMode,
                     onSelected = { viewModel.setThemeMode(it) },
                     modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            SettingsSection(backdrop = backdrop, title = "主题颜色") {
+                ThemeAccentPalette(
+                    selectedAccent = themeAccent,
+                    onAccentSelected = { viewModel.setThemeAccent(it) }
                 )
             }
 
@@ -245,7 +262,7 @@ fun SettingsScreen(
                         context.startActivity(
                             Intent(
                                 Intent.ACTION_VIEW,
-                                android.net.Uri.parse("https://github.com/vikiea/age_android")
+                                "https://github.com/vikiea/age_android".toUri()
                             )
                         )
                     }
@@ -256,7 +273,7 @@ fun SettingsScreen(
                         context.startActivity(
                             Intent(
                                 Intent.ACTION_VIEW,
-                                android.net.Uri.parse("https://vikiea.github.io/age_android/privacy-policy.html")
+                                "https://vikiea.github.io/age_android/privacy-policy.html".toUri()
                             )
                         )
                     }
@@ -476,6 +493,110 @@ private fun ToggleSection(
 }
 
 @Composable
+private fun ThemeAccentPalette(
+    selectedAccent: ThemeAccent,
+    onAccentSelected: (ThemeAccent) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = selectedAccent.description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        AccentGroup(
+            title = "Liquid Glass",
+            accents = ThemeAccent.entries.filter { it.liquidGlass },
+            selectedAccent = selectedAccent,
+            onAccentSelected = onAccentSelected
+        )
+        AccentGroup(
+            title = "纯色",
+            accents = ThemeAccent.entries.filterNot { it.liquidGlass },
+            selectedAccent = selectedAccent,
+            onAccentSelected = onAccentSelected
+        )
+    }
+}
+
+@Composable
+private fun AccentGroup(
+    title: String,
+    accents: List<ThemeAccent>,
+    selectedAccent: ThemeAccent,
+    onAccentSelected: (ThemeAccent) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val compact = maxWidth < 380.dp
+            val rows = if (compact) accents.chunked(3) else accents.chunked(5)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                rows.forEach { rowAccents ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        rowAccents.forEach { accent ->
+                            AccentSwatch(
+                                accent = accent,
+                                selected = accent == selectedAccent,
+                                onClick = { onAccentSelected(accent) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        repeat((if (compact) 3 else 5) - rowAccents.size) {
+                            Spacer(Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccentSwatch(
+    accent: ThemeAccent,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.40f)
+    val labelColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    Column(
+        modifier = modifier
+            .clip(MaterialTheme.shapes.medium)
+            .border(BorderStroke(if (selected) 1.5.dp else 1.dp, borderColor), MaterialTheme.shapes.medium)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(CircleShape)
+                .background(accent.previewBrush)
+                .border(
+                    BorderStroke(1.dp, Color.White.copy(alpha = 0.42f)),
+                    CircleShape
+                )
+        )
+        Text(
+            text = accent.label,
+            style = MaterialTheme.typography.labelSmall,
+            color = labelColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
 private fun UpdateSection(
     backdrop: GlassBackdrop?,
     updateState: UpdateState,
@@ -632,7 +753,7 @@ private fun formatFileSize(bytes: Long): String {
     return when {
         bytes < 1024 -> "$bytes B"
         bytes < 1024 * 1024 -> "${bytes / 1024} KB"
-        else -> String.format("%.1f MB", bytes / (1024.0 * 1024.0))
+        else -> String.format(Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024.0))
     }
 }
 
@@ -648,4 +769,18 @@ private val ThemeMode.description: String
         ThemeMode.SYSTEM -> "根据系统外观自动切换"
         ThemeMode.DARK -> "始终使用深色主题"
         ThemeMode.LIGHT -> "始终使用浅色主题"
+    }
+
+private val ThemeAccent.previewBrush: Brush
+    get() = when (this) {
+        ThemeAccent.LIQUID_DEFAULT -> Brush.linearGradient(listOf(Color(0xFF0E8F68), Color(0xFF1A9DB5)))
+        ThemeAccent.LIQUID_AURORA -> Brush.linearGradient(listOf(Color(0xFF3D6FE8), Color(0xFF9B5DE5)))
+        ThemeAccent.LIQUID_SUNRISE -> Brush.linearGradient(listOf(Color(0xFFC55240), Color(0xFFD64C7F)))
+        ThemeAccent.LIQUID_OCEAN -> Brush.linearGradient(listOf(Color(0xFF007C8E), Color(0xFF16A084)))
+        ThemeAccent.LIQUID_GRAPE -> Brush.linearGradient(listOf(Color(0xFF8A3FB0), Color(0xFFCC4778)))
+        ThemeAccent.SOLID_GREEN -> Brush.linearGradient(listOf(Color(0xFF0E8F68), Color(0xFF0E8F68)))
+        ThemeAccent.SOLID_BLUE -> Brush.linearGradient(listOf(Color(0xFF1565C0), Color(0xFF1565C0)))
+        ThemeAccent.SOLID_RED -> Brush.linearGradient(listOf(Color(0xFFC62828), Color(0xFFC62828)))
+        ThemeAccent.SOLID_PURPLE -> Brush.linearGradient(listOf(Color(0xFF6A1B9A), Color(0xFF6A1B9A)))
+        ThemeAccent.SOLID_ORANGE -> Brush.linearGradient(listOf(Color(0xFFEF6C00), Color(0xFFEF6C00)))
     }

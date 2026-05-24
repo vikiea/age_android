@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.age.android.core.data.DuplicateStrategy
 import com.age.android.core.file.FileSelectionKind
@@ -518,13 +519,13 @@ class FileHelper @Inject constructor(
     fun untarGzipFromTemp(tempFile: File): List<TarEntry> {
         val results = mutableListOf<TarEntry>()
         TarArchiveInputStream(GZIPInputStream(BufferedInputStream(FileInputStream(tempFile)))).use { tar ->
-            var entry = tar.getNextTarEntry()
+            var entry = tar.nextTarEntry()
             while (entry != null) {
                 if (!entry.isDirectory) {
                     val data = tar.readBytes()
                     results.add(TarEntry(entry.name, data))
                 }
-                entry = tar.getNextTarEntry()
+                entry = tar.nextTarEntry()
             }
         }
         return results
@@ -532,24 +533,24 @@ class FileHelper @Inject constructor(
 
     fun untarGzipStreaming(tempFile: File, onEntry: (String, InputStream, Long) -> Unit) {
         TarArchiveInputStream(GZIPInputStream(BufferedInputStream(FileInputStream(tempFile)))).use { tar ->
-            var entry = tar.getNextTarEntry()
+            var entry = tar.nextTarEntry()
             while (entry != null) {
                 if (!entry.isDirectory) {
                     onEntry(entry.name, tar, entry.size)
                 }
-                entry = tar.getNextTarEntry()
+                entry = tar.nextTarEntry()
             }
         }
     }
 
     fun untarStreaming(tempFile: File, onEntry: (String, InputStream, Long) -> Unit) {
         TarArchiveInputStream(BufferedInputStream(FileInputStream(tempFile))).use { tar ->
-            var entry = tar.getNextTarEntry()
+            var entry = tar.nextTarEntry()
             while (entry != null) {
                 if (!entry.isDirectory) {
                     onEntry(entry.name, tar, entry.size)
                 }
-                entry = tar.getNextTarEntry()
+                entry = tar.nextTarEntry()
             }
         }
     }
@@ -651,7 +652,7 @@ class FileHelper @Inject constructor(
     fun resolveUriToPath(uriString: String?): String? {
         if (uriString == null) return null
         return try {
-            val uri = Uri.parse(uriString)
+            val uri = uriString.toUri()
             val treeDocId = android.provider.DocumentsContract.getTreeDocumentId(uri)
             val path = treeDocId.substringAfter(":", treeDocId)
             "/storage/emulated/0/$path"
@@ -682,4 +683,6 @@ class FileHelper @Inject constructor(
             } catch (_: Exception) {}
         }
     }
+
+    private fun TarArchiveInputStream.nextTarEntry(): TarArchiveEntry? = nextEntry
 }

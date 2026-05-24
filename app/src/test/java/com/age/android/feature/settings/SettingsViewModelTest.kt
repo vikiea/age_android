@@ -3,6 +3,7 @@ package com.age.android.feature.settings
 import android.content.Context
 import com.age.android.core.data.DuplicateStrategy
 import com.age.android.core.data.SettingsDataStore
+import com.age.android.core.data.ThemeAccent
 import com.age.android.core.data.ThemeMode
 import com.age.android.core.update.ApkDownloadResult
 import com.age.android.core.update.ReleaseInfo
@@ -32,22 +33,25 @@ import java.io.File
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
+    private lateinit var settingsDataStore: SettingsDataStore
     private lateinit var updateChecker: UpdateChecker
     private lateinit var viewModel: SettingsViewModel
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        val settingsDataStore = mockk<SettingsDataStore> {
+        settingsDataStore = mockk {
             every { duplicateStrategy } returns flowOf(DuplicateStrategy.RENAME)
             every { outputDirUri } returns flowOf(null)
             every { compressEnabled } returns flowOf(true)
             every { concurrency } returns flowOf(4)
             every { themeMode } returns flowOf(ThemeMode.SYSTEM)
+            every { themeAccent } returns flowOf(ThemeAccent.LIQUID_DEFAULT)
+            coEvery { setThemeAccent(any()) } just runs
         }
         val fileHelper = mockk<FileHelper>()
         updateChecker = mockk {
-            every { getCurrentVersion() } returns "2.1.1"
+            every { getCurrentVersion() } returns "3.0.0"
         }
         val context = mockk<Context>(relaxed = true)
         viewModel = SettingsViewModel(settingsDataStore, fileHelper, updateChecker, context)
@@ -62,7 +66,7 @@ class SettingsViewModelTest {
     fun `downloadUpdate clears downloading state when DownloadManager reports completion`() = runTest(testDispatcher) {
         val release = ReleaseInfo(
             tagName = "v2.2.0",
-            versionName = "2.2.0",
+            versionName = "3.1.0",
             body = "",
             apkUrl = "https://example.com/app.apk",
             apkSize = 123L
@@ -86,5 +90,13 @@ class SettingsViewModelTest {
         assertFalse(viewModel.updateState.value.isDownloading)
         coVerify { updateChecker.awaitApkDownload(42L, release.versionName) }
         coVerify { updateChecker.installApk(apkFile) }
+    }
+
+    @Test
+    fun `setThemeAccent persists selected accent`() = runTest(testDispatcher) {
+        viewModel.setThemeAccent(ThemeAccent.SOLID_BLUE)
+        advanceUntilIdle()
+
+        coVerify { settingsDataStore.setThemeAccent(ThemeAccent.SOLID_BLUE) }
     }
 }

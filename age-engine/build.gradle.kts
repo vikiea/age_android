@@ -18,6 +18,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
+    packaging {
+        jniLibs {
+            keepDebugSymbols += "**/libgojni.so"
+        }
+    }
 }
 
 kotlin {

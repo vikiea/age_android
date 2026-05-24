@@ -15,6 +15,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import com.age.android.core.data.ThemeAccent
 import com.age.android.core.data.ThemeMode
 
 private val DarkColorScheme = darkColorScheme(
@@ -78,6 +79,7 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun AgeAndroidTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
+    themeAccent: ThemeAccent = ThemeAccent.LIQUID_DEFAULT,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
@@ -93,13 +95,111 @@ fun AgeAndroidTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+        darkTheme -> darkColorSchemeFor(themeAccent)
+        else -> lightColorSchemeFor(themeAccent)
     }
 
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
         content = content
+    )
+}
+
+private fun lightColorSchemeFor(accent: ThemeAccent) = LightColorScheme.copy(
+    primary = accent.lightPrimary,
+    primaryContainer = accent.lightPrimaryContainer,
+    onPrimaryContainer = accent.lightOnPrimaryContainer,
+    secondary = accent.lightSecondary,
+    secondaryContainer = accent.lightSecondaryContainer,
+    onSecondaryContainer = accent.lightOnSecondaryContainer,
+    tertiary = accent.lightTertiary,
+    background = accent.lightBackground,
+    surface = accent.lightSurface,
+    surfaceVariant = accent.lightSurfaceVariant,
+    outline = accent.lightOutline
+)
+
+private fun darkColorSchemeFor(accent: ThemeAccent) = DarkColorScheme.copy(
+    primary = accent.darkPrimary,
+    primaryContainer = accent.darkPrimaryContainer,
+    onPrimaryContainer = accent.darkOnPrimaryContainer,
+    secondary = accent.darkSecondary,
+    secondaryContainer = accent.darkSecondaryContainer,
+    onSecondaryContainer = accent.darkOnSecondaryContainer,
+    tertiary = accent.darkTertiary,
+    surfaceBright = accent.darkSurfaceBright,
+    surfaceContainer = accent.darkSurfaceContainer,
+    surfaceContainerHigh = accent.darkSurfaceContainerHigh,
+    surfaceContainerHighest = accent.darkSurfaceContainerHighest,
+    inversePrimary = accent.lightPrimary
+)
+
+private val ThemeAccent.lightPrimary: Color
+    get() = when (this) {
+        ThemeAccent.LIQUID_DEFAULT -> AgeGreen
+        ThemeAccent.LIQUID_AURORA -> Color(0xFF3D6FE8)
+        ThemeAccent.LIQUID_SUNRISE -> Color(0xFFC55240)
+        ThemeAccent.LIQUID_OCEAN -> Color(0xFF007C8E)
+        ThemeAccent.LIQUID_GRAPE -> Color(0xFF8A3FB0)
+        ThemeAccent.SOLID_GREEN -> Color(0xFF0E8F68)
+        ThemeAccent.SOLID_BLUE -> Color(0xFF1565C0)
+        ThemeAccent.SOLID_RED -> Color(0xFFC62828)
+        ThemeAccent.SOLID_PURPLE -> Color(0xFF6A1B9A)
+        ThemeAccent.SOLID_ORANGE -> Color(0xFFEF6C00)
+    }
+
+private val ThemeAccent.lightSecondary: Color
+    get() = if (liquidGlass) when (this) {
+        ThemeAccent.LIQUID_DEFAULT -> AgeCyan
+        ThemeAccent.LIQUID_AURORA -> Color(0xFF9B5DE5)
+        ThemeAccent.LIQUID_SUNRISE -> Color(0xFFD64C7F)
+        ThemeAccent.LIQUID_OCEAN -> Color(0xFF16A084)
+        ThemeAccent.LIQUID_GRAPE -> Color(0xFFCC4778)
+        else -> lightPrimary
+    } else {
+        lightPrimary
+    }
+
+private val ThemeAccent.lightTertiary: Color
+    get() = if (liquidGlass) when (this) {
+        ThemeAccent.LIQUID_DEFAULT -> Color(0xFF8B5A00)
+        ThemeAccent.LIQUID_AURORA -> Color(0xFF0077B6)
+        ThemeAccent.LIQUID_SUNRISE -> Color(0xFFA85F00)
+        ThemeAccent.LIQUID_OCEAN -> Color(0xFF326FBA)
+        ThemeAccent.LIQUID_GRAPE -> Color(0xFF7E57C2)
+        else -> lightPrimary
+    } else {
+        lightPrimary
+    }
+
+private val ThemeAccent.lightPrimaryContainer: Color get() = lightPrimary.blendWith(Color.White, 0.78f)
+private val ThemeAccent.lightSecondaryContainer: Color get() = lightSecondary.blendWith(Color.White, 0.80f)
+private val ThemeAccent.lightOnPrimaryContainer: Color get() = lightPrimary.blendWith(Color.Black, 0.55f)
+private val ThemeAccent.lightOnSecondaryContainer: Color get() = lightSecondary.blendWith(Color.Black, 0.55f)
+private val ThemeAccent.lightBackground: Color get() = if (liquidGlass) lightPrimary.blendWith(Color.White, 0.94f) else Color(0xFFF8FAFB)
+private val ThemeAccent.lightSurface: Color get() = if (liquidGlass) lightSecondary.blendWith(Color.White, 0.96f) else Color(0xFFFCFCFD)
+private val ThemeAccent.lightSurfaceVariant: Color get() = lightPrimary.blendWith(Color.White, 0.86f)
+private val ThemeAccent.lightOutline: Color get() = lightPrimary.blendWith(Color(0xFF6B7280), 0.50f)
+
+private val ThemeAccent.darkPrimary: Color get() = lightPrimary.blendWith(Color.White, 0.48f)
+private val ThemeAccent.darkSecondary: Color get() = lightSecondary.blendWith(Color.White, 0.48f)
+private val ThemeAccent.darkTertiary: Color get() = lightTertiary.blendWith(Color.White, 0.44f)
+private val ThemeAccent.darkPrimaryContainer: Color get() = lightPrimary.blendWith(Color.Black, 0.68f)
+private val ThemeAccent.darkSecondaryContainer: Color get() = lightSecondary.blendWith(Color.Black, 0.70f)
+private val ThemeAccent.darkOnPrimaryContainer: Color get() = darkPrimary.blendWith(Color.White, 0.58f)
+private val ThemeAccent.darkOnSecondaryContainer: Color get() = darkSecondary.blendWith(Color.White, 0.58f)
+private val ThemeAccent.darkSurfaceBright: Color get() = lightPrimary.blendWith(Color(0xFF101418), 0.18f)
+private val ThemeAccent.darkSurfaceContainer: Color get() = lightPrimary.blendWith(Color(0xFF070A0D), 0.08f)
+private val ThemeAccent.darkSurfaceContainerHigh: Color get() = lightPrimary.blendWith(Color(0xFF0B1014), 0.13f)
+private val ThemeAccent.darkSurfaceContainerHighest: Color get() = lightSecondary.blendWith(Color(0xFF111820), 0.18f)
+
+private fun Color.blendWith(other: Color, otherFraction: Float): Color {
+    val selfFraction = 1f - otherFraction
+    return Color(
+        red = red * selfFraction + other.red * otherFraction,
+        green = green * selfFraction + other.green * otherFraction,
+        blue = blue * selfFraction + other.blue * otherFraction,
+        alpha = alpha * selfFraction + other.alpha * otherFraction
     )
 }

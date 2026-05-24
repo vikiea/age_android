@@ -5,6 +5,7 @@
  */
 package com.age.android.feature.keys
 
+import android.content.ClipData
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
@@ -35,18 +36,19 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.age.android.core.model.KeyEntry
 import com.age.android.ui.glass.GlassBackdrop
 import com.age.android.ui.glass.GlassButton
@@ -61,6 +63,7 @@ import com.age.android.ui.glass.GlassTonalSurface
 import com.age.android.ui.glass.StatusTone
 import java.text.SimpleDateFormat
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @Composable
 fun KeyDetailScreen(
@@ -71,9 +74,10 @@ fun KeyDetailScreen(
 ) {
     val keys by viewModel.keys.collectAsState()
     val key = keys.find { it.id == keyId }
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
     var privateKeyRevealed by remember { mutableStateOf(false) }
 
     val createDocLauncher = rememberLauncherForActivityResult(
@@ -164,7 +168,7 @@ fun KeyDetailScreen(
             KeyTextSection(
                 title = "公钥",
                 value = key.publicKey,
-                onCopy = { clipboard.setText(AnnotatedString(key.publicKey)) },
+                onCopy = { coroutineScope.launch { clipboard.setPlainText("公钥", key.publicKey) } },
                 backdrop = backdrop
             )
 
@@ -210,7 +214,7 @@ fun KeyDetailScreen(
                                     modifier = Modifier.weight(1f),
                                     style = MaterialTheme.typography.bodyMedium
                                 )
-                                IconButton(onClick = { clipboard.setText(AnnotatedString(privateKey)) }) {
+                                IconButton(onClick = { coroutineScope.launch { clipboard.setPlainText("私钥", privateKey) } }) {
                                     Icon(Icons.Default.ContentCopy, contentDescription = "复制")
                                 }
                             }
@@ -291,6 +295,13 @@ fun KeyDetailScreen(
             )
         }
     }
+}
+
+private suspend fun androidx.compose.ui.platform.Clipboard.setPlainText(
+    label: String,
+    text: String
+) {
+    setClipEntry(ClipEntry(ClipData.newPlainText(label, text)))
 }
 
 @Composable

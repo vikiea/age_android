@@ -26,7 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.age.android.core.model.buildFileTree
 import com.age.android.ui.components.FilePathTreeView
 import com.age.android.ui.components.FileTreeView
@@ -184,7 +184,7 @@ fun DecryptScreen(
                                     value = selectedKeyName,
                                     onValueChange = {},
                                     label = "选择私钥",
-                                    modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
+                                    modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true),
                                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
                                     singleLine = true,
                                     readOnly = true

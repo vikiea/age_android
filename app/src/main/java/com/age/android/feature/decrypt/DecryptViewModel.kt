@@ -6,6 +6,7 @@
 package com.age.android.feature.decrypt
 
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.age.android.core.age.AgeEngine
@@ -144,7 +145,7 @@ class DecryptViewModel @Inject constructor(
         val customUriStr = customOutputDir.value
         if (customUriStr != null) {
             // Custom dir: read via SAF API, skip cache cleanup to preserve SAF-cached files
-            val rootUri = Uri.parse(customUriStr)
+            val rootUri = customUriStr.toUri()
             val files = state.outputFiles.mapNotNull { fileHelper.readSafFileToCacheRelative(rootUri, "decrypted", it) }
             if (files.isNotEmpty()) fileHelper.shareFiles(files)
         } else {
@@ -295,7 +296,7 @@ class DecryptViewModel @Inject constructor(
     private fun writeStreamToFile(name: String, input: java.io.InputStream, size: Long, strategy: DuplicateStrategy): String {
         val customUriStr = customOutputDir.value
         if (customUriStr != null) {
-            val customUri = Uri.parse(customUriStr)
+            val customUri = customUriStr.toUri()
             return fileHelper.writeStreamToSafRelative(customUri, "decrypted", name, input, strategy)
                 ?: throw Exception("写入文件失败")
         } else {
@@ -307,7 +308,7 @@ class DecryptViewModel @Inject constructor(
     private fun writeOutputFromTemp(name: String, srcFile: java.io.File, strategy: DuplicateStrategy): String {
         val customUriStr = customOutputDir.value
         if (customUriStr != null) {
-            val customUri = Uri.parse(customUriStr)
+            val customUri = customUriStr.toUri()
             return fileHelper.copyFileToSafRelative(customUri, "decrypted", name, srcFile, strategy)
                 ?: throw Exception("写入文件失败")
         } else {

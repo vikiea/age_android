@@ -12,7 +12,7 @@ Android native app wrapping the [age](https://filippo.io/age) encryption tool wi
 - **Go engine**: tar/tar.gz compression and age encryption via gomobile, ~32KB memory footprint
 - **Android-native intake and sharing**: Open files from the system picker, folders, or Android share intents, then share encrypted/decrypted outputs back out
 - **Custom save directory**: SAF-based directory picker with persistent URI permission and `encrypted/` / `decrypted/` subfolders
-- **User controls**: Theme mode, duplicate handling, compression, and processing concurrency are configurable from Settings
+- **User controls**: Theme mode, theme accent color, duplicate handling, compression, and processing concurrency are configurable from Settings
 - **Key management**: Generate, import, and manage X25519 key pairs
 - **Protected key detail**: Private keys can be revealed behind device biometric authentication when available
 - **Operation history**: Track all encryption/decryption operations and inspect operation details
@@ -51,9 +51,9 @@ Android native app wrapping the [age](https://filippo.io/age) encryption tool wi
 
 | Layer | Technology |
 |-------|-----------|
-| App version | 2.1.1 (`versionCode` 7) |
+| App version | 3.0.0 (`versionCode` 8) |
 | Language | Kotlin 2.3.10, Go 1.25 |
-| Android | compileSdk 36, minSdk 26, targetSdk 35 |
+| Android | compileSdk 36, minSdk 26, targetSdk 36 |
 | UI | Jetpack Compose BOM 2026.02.00, Material3, `io.github.kyant0:backdrop` |
 | Navigation | Navigation Compose 2.8.5 |
 | DI | Hilt 2.58, Hilt Navigation Compose 1.3.0 |
@@ -70,7 +70,7 @@ Android native app wrapping the [age](https://filippo.io/age) encryption tool wi
 
 ### Prerequisites
 
-- Android SDK (compile SDK 36, min SDK 26, target SDK 35)
+- Android SDK (compile SDK 36, min SDK 26, target SDK 36)
 - Go 1.25+ with gomobile (`go install golang.org/x/mobile/cmd/gomobile@latest`)
 - NDK 27+ (for gomobile)
 

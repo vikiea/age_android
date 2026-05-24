@@ -12,6 +12,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.age.android.core.data.DuplicateStrategy
 import com.age.android.core.data.SettingsDataStore
+import com.age.android.core.data.ThemeAccent
 import com.age.android.core.data.ThemeMode
 import com.age.android.core.update.ApkDownloadResult
 import com.age.android.core.update.ReleaseInfo
@@ -59,6 +60,9 @@ class SettingsViewModel @Inject constructor(
 
     val themeMode: StateFlow<ThemeMode> = settingsDataStore.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ThemeMode.SYSTEM)
+
+    val themeAccent: StateFlow<ThemeAccent> = settingsDataStore.themeAccent
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ThemeAccent.LIQUID_DEFAULT)
 
     private val _updateState = MutableStateFlow(UpdateState())
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
@@ -140,6 +144,12 @@ class SettingsViewModel @Inject constructor(
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
             settingsDataStore.setThemeMode(mode)
+        }
+    }
+
+    fun setThemeAccent(accent: ThemeAccent) {
+        viewModelScope.launch {
+            settingsDataStore.setThemeAccent(accent)
         }
     }
 

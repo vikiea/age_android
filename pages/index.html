@@ -9,7 +9,7 @@ See LICENSE for details.
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Age Android - Local-first age encryption for Android</title>
-  <meta name="description" content="Age Android is a native Android app for local age file encryption, decryption, key management, history, and streaming batch processing.">
+  <meta name="description" content="Age Android is a native Android app for local age file encryption, decryption, key management, tree-structured history, theme color customization, and streaming batch processing.">
   <meta name="theme-color" content="#ffffff">
   <meta property="og:title" content="Age Android">
   <meta property="og:description" content="Local-first age file encryption for Android.">
@@ -999,7 +999,7 @@ See LICENSE for details.
           <button class="language-button" type="button" data-lang="en" aria-pressed="true">EN</button>
           <button class="language-button" type="button" data-lang="zh" aria-pressed="false">中文</button>
         </div>
-        <a class="button primary" href="https://github.com/vikiea/age_android/releases/download/v2.1.1/app-universal-release.apk" data-i18n="nav.primary">Download APK</a>
+        <a class="button primary" href="https://github.com/vikiea/age_android/releases/download/v3.0.0/app-universal-release.apk" data-i18n="nav.primary">Download APK</a>
       </div>
     </div>
   </header>
@@ -1008,16 +1008,16 @@ See LICENSE for details.
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-inner">
         <div class="hero-copy">
-          <p class="eyebrow"><span class="status-dot" aria-hidden="true">&nbsp;</span><span data-i18n="hero.eyebrow">Latest public release v2.1.1</span></p>
+          <p class="eyebrow"><span class="status-dot" aria-hidden="true">&nbsp;</span><span data-i18n="hero.eyebrow">Latest public release v3.0.0</span></p>
           <h1 id="hero-title" data-i18n="hero.title">Local-first age encryption for Android.</h1>
           <p class="hero-lede" data-i18n="hero.lede">Encrypt folders as visible tree units, decrypt archives back into their original structure, manage age keys, and keep every file operation on your Android device.</p>
           <div class="hero-actions">
-            <a class="button green" href="https://github.com/vikiea/age_android/releases/download/v2.1.1/app-universal-release.apk" data-i18n="hero.download">Download Universal APK</a>
+            <a class="button green" href="https://github.com/vikiea/age_android/releases/download/v3.0.0/app-universal-release.apk" data-i18n="hero.download">Download Universal APK</a>
             <a class="button secondary" href="#screenshots" data-i18n="hero.secondary">View the app</a>
           </div>
           <div class="hero-meta" aria-label="Highlights">
             <div class="meta-card">
-              <strong>v2.1.1</strong>
+              <strong>v3.0.0</strong>
               <span data-i18n="hero.meta.release">Current release</span>
             </div>
             <div class="meta-card">
@@ -1048,7 +1048,7 @@ See LICENSE for details.
         <span data-i18n="marquee.local">Local-only file processing</span>
         <span data-i18n="marquee.engine">Streaming Go age engine</span>
         <span data-i18n="marquee.keys">On-device key management</span>
-        <span data-i18n="marquee.compose">Native Jetpack Compose UI</span>
+        <span data-i18n="marquee.compose">Customizable Liquid Glass UI</span>
       </div>
     </div>
 
@@ -1059,7 +1059,7 @@ See LICENSE for details.
             <p class="section-kicker" data-i18n="features.kicker">What it does</p>
             <h2 data-i18n="features.title">A mobile workbench for private files.</h2>
           </div>
-          <p data-i18n="features.body">Age Android pairs Jetpack Compose with a local Go age engine, so large file work stays streamed, visible, and under your control.</p>
+          <p data-i18n="features.body">Age Android pairs Jetpack Compose with a local Go age engine, configurable Liquid Glass accents, and clean tree views so large file work stays streamed, visible, and under your control.</p>
         </div>
 
         <div class="feature-grid">
@@ -1081,7 +1081,7 @@ See LICENSE for details.
           <article class="feature-card">
             <span class="caption">04</span>
             <h3 data-i18n="features.cards.history.title">Operation history</h3>
-            <p data-i18n="features.cards.history.body">Review completed encryption and decryption work with status, paths, and output details.</p>
+            <p data-i18n="features.cards.history.body">Review completed encryption and decryption work with status, paths, and tree-structured file details.</p>
           </article>
         </div>
       </div>
@@ -1095,7 +1095,7 @@ See LICENSE for details.
           <p data-i18n="flow.body">The app uses Android's storage access framework, Compose surfaces, bottom navigation, and local app storage instead of a remote upload flow.</p>
           <ul class="flow-list">
             <li><span class="checkmark">✓</span><span data-i18n="flow.list.0">Subfolders stay as independent units, encrypt as one archive in separate mode, and results are shown as trees.</span></li>
-            <li><span class="checkmark">✓</span><span data-i18n="flow.list.1">Compression, duplicate handling, theme, and concurrency live in Settings.</span></li>
+            <li><span class="checkmark">✓</span><span data-i18n="flow.list.1">Compression, duplicate handling, theme colors, and concurrency live in Settings.</span></li>
             <li><span class="checkmark">✓</span><span data-i18n="flow.list.2">Share intents route incoming files directly to encrypt or decrypt workflows.</span></li>
           </ul>
         </div>
@@ -1175,7 +1175,7 @@ See LICENSE for details.
             </a>
             <div class="shot-copy">
               <strong data-i18n="screens.history.title">History</strong>
-              <span data-i18n="screens.history.body">Review completed work and inspect output details.</span>
+              <span data-i18n="screens.history.body">Review completed work and inspect tree-structured file details.</span>
               <a class="shot-action" href="./assets/app-screen-history.png" target="_blank" rel="noopener" data-i18n="screens.open">Open full image</a>
             </div>
           </article>
@@ -1191,23 +1191,23 @@ See LICENSE for details.
           <p data-i18n="download.body">Universal is the easiest choice for most users. ABI-specific builds are smaller and match the device architecture directly.</p>
         </div>
         <div class="download-list">
-          <a class="download-option" href="https://github.com/vikiea/age_android/releases/download/v2.1.1/app-universal-release.apk">
+          <a class="download-option" href="https://github.com/vikiea/age_android/releases/download/v3.0.0/app-universal-release.apk">
             <strong data-i18n="download.universal">Universal APK</strong>
-            <span>21 MB</span>
+            <span>15 MB</span>
           </a>
-          <a class="download-option" href="https://github.com/vikiea/age_android/releases/download/v2.1.1/app-arm64-v8a-release.apk">
+          <a class="download-option" href="https://github.com/vikiea/age_android/releases/download/v3.0.0/app-arm64-v8a-release.apk">
             <strong data-i18n="download.arm64">arm64-v8a APK</strong>
-            <span>7.1 MB</span>
+            <span>5.8 MB</span>
           </a>
-          <a class="download-option" href="https://github.com/vikiea/age_android/releases/download/v2.1.1/app-armeabi-v7a-release.apk">
+          <a class="download-option" href="https://github.com/vikiea/age_android/releases/download/v3.0.0/app-armeabi-v7a-release.apk">
             <strong data-i18n="download.armv7">armeabi-v7a APK</strong>
-            <span>7.3 MB</span>
+            <span>5.9 MB</span>
           </a>
-          <a class="download-option" href="https://github.com/vikiea/age_android/releases/download/v2.1.1/app-x86_64-release.apk">
+          <a class="download-option" href="https://github.com/vikiea/age_android/releases/download/v3.0.0/app-x86_64-release.apk">
             <strong data-i18n="download.x86">x86_64 APK</strong>
-            <span>7.5 MB</span>
+            <span>6.0 MB</span>
           </a>
-          <a class="text-link" href="https://github.com/vikiea/age_android/releases/tag/v2.1.1" data-i18n="download.release">Open release notes</a>
+          <a class="text-link" href="https://github.com/vikiea/age_android/releases/tag/v3.0.0" data-i18n="download.release">Open release notes</a>
         </div>
       </div>
     </section>
@@ -1225,7 +1225,7 @@ See LICENSE for details.
       </div>
       <div class="footer-links">
         <a class="text-link" href="https://github.com/vikiea/age_android/blob/main/LICENSE">MIT License</a>
-        <a class="text-link" href="https://github.com/vikiea/age_android/releases/tag/v2.1.1" data-i18n="footer.release">Latest release</a>
+        <a class="text-link" href="https://github.com/vikiea/age_android/releases/tag/v3.0.0" data-i18n="footer.release">Latest release</a>
       </div>
     </div>
   </footer>
@@ -1234,7 +1234,7 @@ See LICENSE for details.
     const translations = {
       en: {
         metaTitle: "Age Android - Local-first age encryption for Android",
-        metaDescription: "Age Android is a native Android app for local age file encryption, decryption, key management, history, and streaming batch processing.",
+        metaDescription: "Age Android is a native Android app for local age file encryption, decryption, key management, tree-structured history, theme color customization, and streaming batch processing.",
         skip: "Skip to content",
         nav: {
           features: "Features",
@@ -1244,7 +1244,7 @@ See LICENSE for details.
           primary: "Download APK"
         },
         hero: {
-          eyebrow: "Latest public release v2.1.1",
+          eyebrow: "Latest public release v3.0.0",
           title: "Local-first age encryption for Android.",
           lede: "Encrypt folders as visible tree units, decrypt archives back into their original structure, manage age keys, and keep every file operation on your Android device.",
           download: "Download Universal APK",
@@ -1260,12 +1260,12 @@ See LICENSE for details.
           local: "Local-only file processing",
           engine: "Streaming Go age engine",
           keys: "On-device key management",
-          compose: "Native Jetpack Compose UI"
+          compose: "Customizable Liquid Glass UI"
         },
         features: {
           kicker: "What it does",
           title: "A mobile workbench for private files.",
-          body: "Age Android pairs Jetpack Compose with a local Go age engine, so large file work stays streamed, visible, and under your control.",
+          body: "Age Android pairs Jetpack Compose with a local Go age engine, configurable Liquid Glass accents, and clean tree views so large file work stays streamed, visible, and under your control.",
           cards: {
             encrypt: {
               title: "Batch encryption",
@@ -1281,7 +1281,7 @@ See LICENSE for details.
             },
             history: {
               title: "Operation history",
-              body: "Review completed encryption and decryption work with status, paths, and output details."
+              body: "Review completed encryption and decryption work with status, paths, and tree-structured file details."
             }
           }
         },
@@ -1291,7 +1291,7 @@ See LICENSE for details.
           body: "The app uses Android's storage access framework, Compose surfaces, bottom navigation, and local app storage instead of a remote upload flow.",
           list: [
             "Subfolders stay as independent units, encrypt as one archive in separate mode, and results are shown as trees.",
-            "Compression, duplicate handling, theme, and concurrency live in Settings.",
+            "Compression, duplicate handling, theme colors, and concurrency live in Settings.",
             "Share intents route incoming files directly to encrypt or decrypt workflows."
           ]
         },
@@ -1324,7 +1324,7 @@ See LICENSE for details.
           },
           history: {
             title: "History",
-            body: "Review completed work and inspect output details.",
+            body: "Review completed work and inspect tree-structured file details.",
             alt: "Age Android history screen showing completed encryption and decryption records"
           }
         },
@@ -1346,7 +1346,7 @@ See LICENSE for details.
       },
       zh: {
         metaTitle: "Age Android - 本地优先的 Android age 加解密应用",
-        metaDescription: "Age Android 是一个原生 Android age 文件加解密应用，支持本地流式加密、解密、密钥管理、历史记录和批处理。",
+        metaDescription: "Age Android 是一个原生 Android age 文件加解密应用，支持本地流式加密、解密、密钥管理、树结构历史详情、主题颜色和批处理。",
         skip: "跳到正文",
         nav: {
           features: "能力",
@@ -1356,7 +1356,7 @@ See LICENSE for details.
           primary: "下载 APK"
         },
         hero: {
-          eyebrow: "最新公开版本 v2.1.1",
+          eyebrow: "最新公开版本 v3.0.0",
           title: "Android 上的本地优先 age 加密。",
           lede: "将文件夹作为可见的树形单位加密，把归档解密回原始结构，管理 age 密钥，并让每一次文件处理都留在你的 Android 设备本地。",
           download: "下载 Universal APK",
@@ -1372,12 +1372,12 @@ See LICENSE for details.
           local: "文件仅在本地处理",
           engine: "流式 Go age 引擎",
           keys: "设备内密钥管理",
-          compose: "原生 Jetpack Compose UI"
+          compose: "可自定义 Liquid Glass 界面"
         },
         features: {
           kicker: "核心能力",
           title: "为私密文件准备的移动工作台。",
-          body: "Age Android 将 Jetpack Compose 和本地 Go age 引擎组合在一起，大文件处理保持流式、可见、可控。",
+          body: "Age Android 将 Jetpack Compose、本地 Go age 引擎、可配置 Liquid Glass 主题色和清晰树视图组合在一起，大文件处理保持流式、可见、可控。",
           cards: {
             encrypt: {
               title: "批量加密",
@@ -1393,7 +1393,7 @@ See LICENSE for details.
             },
             history: {
               title: "操作历史",
-              body: "查看已完成的加密和解密任务，包括状态、路径和输出详情。"
+              body: "查看已完成的加密和解密任务，包括状态、路径和树结构文件详情。"
             }
           }
         },
@@ -1403,7 +1403,7 @@ See LICENSE for details.
           body: "应用使用 Android 存储访问框架、Compose 界面、底部导航和本地应用存储，而不是远程上传式流程。",
           list: [
             "子文件夹会作为独立单位保留，在分别加密模式下作为一个归档输出，结果也按树结构展示。",
-            "压缩、重名处理、主题和并发数都在设置中管理。",
+            "压缩、重名处理、主题颜色和并发数都在设置中管理。",
             "来自其他应用的分享文件会自动进入加密或解密流程。"
           ]
         },
@@ -1436,7 +1436,7 @@ See LICENSE for details.
           },
           history: {
             title: "历史",
-            body: "回看已完成任务，并检查输出详情。",
+            body: "回看已完成任务，并检查树结构文件详情。",
             alt: "Age Android 历史页，展示已完成的加密和解密记录"
           }
         },

@@ -1,4 +1,5 @@
 import java.util.Properties
+import org.gradle.api.tasks.testing.Test
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -21,9 +22,9 @@ android {
     defaultConfig {
         applicationId = "com.age.android"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 7
-        versionName = "2.1.1"
+        targetSdk = 36
+        versionCode = 8
+        versionName = "3.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -74,13 +75,34 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+        jniLibs {
+            keepDebugSymbols += setOf(
+                "**/libandroidx.graphics.path.so",
+                "**/libdatastore_shared_counter.so",
+                "**/libgojni.so"
+            )
+        }
+    }
+
+    lint {
+        disable += setOf(
+            "AndroidGradlePluginVersion",
+            "GradleDependency",
+            "NewerVersionAvailable",
+            "ObsoleteSdkInt"
+        )
     }
 }
 
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_11)
+        freeCompilerArgs.add("-Xannotation-default-target=param-property")
     }
+}
+
+tasks.withType<Test>().configureEach {
+    jvmArgs("-Xshare:off")
 }
 
 dependencies {

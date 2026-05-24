@@ -5,6 +5,9 @@ ENGINE_AAR := age-engine/libs/age-engine.aar
 ENGINE_LIBS := age-engine/libs
 ENGINE_JNI := age-engine/src/main/jniLibs
 GOMOBILE := $(HOME)/go/bin/gomobile
+GOMOBILE_LDFLAGS := -linkmode=external -extldflags=-Wl,-z,max-page-size=16384
+ANDROID_NDK_HOME ?= $(ANDROID_HOME)/ndk/27.2.12479018
+LLVM_STRIP := $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-strip
 ADB_DEVICE ?= 
 
 # ADB target flag (empty = default device, set to ip:port for TCP)
@@ -15,11 +18,14 @@ ADB_FLAG := $(if $(ADB_DEVICE),-s $(ADB_DEVICE),)
 engine: ## Rebuild Go engine AAR via gomobile
 	cd $(ENGINE_SRC) && $(GOMOBILE) bind \
 		-target=android -androidapi=26 \
+		-ldflags='$(GOMOBILE_LDFLAGS)' \
 		-o $(CURDIR)/$(ENGINE_AAR) \
 		-javapkg=com.age.engine .
 	@# Extract AAR → classes.jar + jniLibs (release build requires this)
 	@cd /tmp && rm -rf _aar_extract && mkdir _aar_extract && cd _aar_extract \
 		&& unzip -q $(CURDIR)/$(ENGINE_AAR)
+	@find /tmp/_aar_extract/jni -name '*.so' -exec $(LLVM_STRIP) --strip-unneeded {} \;
+	@cd /tmp/_aar_extract && zip -qr $(CURDIR)/$(ENGINE_AAR) .
 	@cp /tmp/_aar_extract/classes.jar $(ENGINE_LIBS)/age-engine-classes.jar
 	@rm -rf $(ENGINE_JNI)
 	@cp -r /tmp/_aar_extract/jni $(ENGINE_JNI)

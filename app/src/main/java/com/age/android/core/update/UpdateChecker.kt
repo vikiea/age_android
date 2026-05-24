@@ -9,10 +9,10 @@ import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Environment
 import android.util.Log
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -169,7 +169,7 @@ class UpdateChecker @Inject constructor(
         // Try direct first, fallback to proxy mirrors
         val downloadUrl = tryDownloadUrl(url)
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val request = DownloadManager.Request(Uri.parse(downloadUrl))
+        val request = DownloadManager.Request(downloadUrl.toUri())
             .setTitle("Age Android v$versionName")
             .setDescription("正在下载新版本...")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
@@ -232,7 +232,7 @@ class UpdateChecker @Inject constructor(
         if (localUriIndex >= 0) {
             val localUri = cursor.getString(localUriIndex)
             val file = localUri
-                ?.let { Uri.parse(it) }
+                ?.let { it.toUri() }
                 ?.takeIf { it.scheme == "file" }
                 ?.path
                 ?.let(::File)

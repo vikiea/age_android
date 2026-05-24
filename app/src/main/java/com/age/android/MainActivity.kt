@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.fragment.app.FragmentActivity
 import com.age.android.core.data.SettingsDataStore
+import com.age.android.core.data.ThemeAccent
 import com.age.android.core.data.ThemeMode
 import com.age.android.navigation.AppNavigation
 import com.age.android.ui.theme.AgeAndroidTheme
@@ -36,7 +37,8 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         setContent {
             val themeMode by settingsDataStore.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
-            AgeAndroidTheme(themeMode = themeMode) {
+            val themeAccent by settingsDataStore.themeAccent.collectAsState(initial = ThemeAccent.LIQUID_DEFAULT)
+            AgeAndroidTheme(themeMode = themeMode, themeAccent = themeAccent) {
                 AppNavigation(
                     sharedUris = sharedUris.value,
                     onSharedUrisConsumed = { sharedUris.value = null }

@@ -17,4 +17,18 @@ class ThemeModeTest {
         assertEquals(ThemeMode.SYSTEM, ThemeMode.fromStoredName(""))
         assertEquals(ThemeMode.SYSTEM, ThemeMode.fromStoredName("legacy"))
     }
+
+    @Test
+    fun `stored names map to theme accents`() {
+        assertEquals(ThemeAccent.LIQUID_DEFAULT, ThemeAccent.fromStoredName("LIQUID_DEFAULT"))
+        assertEquals(ThemeAccent.LIQUID_AURORA, ThemeAccent.fromStoredName("LIQUID_AURORA"))
+        assertEquals(ThemeAccent.SOLID_RED, ThemeAccent.fromStoredName("SOLID_RED"))
+    }
+
+    @Test
+    fun `unknown stored accent names fall back to liquid default`() {
+        assertEquals(ThemeAccent.LIQUID_DEFAULT, ThemeAccent.fromStoredName(null))
+        assertEquals(ThemeAccent.LIQUID_DEFAULT, ThemeAccent.fromStoredName(""))
+        assertEquals(ThemeAccent.LIQUID_DEFAULT, ThemeAccent.fromStoredName("legacy"))
+    }
 }

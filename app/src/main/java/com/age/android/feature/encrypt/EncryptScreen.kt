@@ -26,7 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import android.net.Uri
 import com.age.android.core.model.EncryptMode
 import com.age.android.core.model.buildFileTree
@@ -190,7 +190,7 @@ fun EncryptScreen(
                         if (keys.isNotEmpty()) {
                             var expanded by remember { mutableStateOf(false) }
                             ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-                                GlassTextField(value = uiState.selectedPublicKey, onValueChange = { viewModel.setSelectedPublicKey(it) }, label = "公钥", modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, true), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) })
+                                GlassTextField(value = uiState.selectedPublicKey, onValueChange = { viewModel.setSelectedPublicKey(it) }, label = "公钥", modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) })
                                 ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                                     keys.forEach { key ->
                                         DropdownMenuItem(text = { Text("${key.name}: ${key.publicKey.take(20)}...") }, onClick = { viewModel.setSelectedPublicKey(key.publicKey); expanded = false })
