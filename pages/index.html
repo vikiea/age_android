@@ -999,7 +999,7 @@ See LICENSE for details.
           <button class="language-button" type="button" data-lang="en" aria-pressed="true">EN</button>
           <button class="language-button" type="button" data-lang="zh" aria-pressed="false">中文</button>
         </div>
-        <a class="button primary" href="https://github.com/vikiea/age_android/releases/download/v2.0.0/app-universal-release.apk" data-i18n="nav.primary">Download APK</a>
+        <a class="button primary" href="https://github.com/vikiea/age_android/releases/download/v2.1.0/app-universal-release.apk" data-i18n="nav.primary">Download APK</a>
       </div>
     </div>
   </header>
@@ -1008,16 +1008,16 @@ See LICENSE for details.
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-inner">
         <div class="hero-copy">
-          <p class="eyebrow"><span class="status-dot"></span><span data-i18n="hero.eyebrow">Latest public release v2.0.0</span></p>
+          <p class="eyebrow"><span class="status-dot" aria-hidden="true">&nbsp;</span><span data-i18n="hero.eyebrow">Latest public release v2.1.0</span></p>
           <h1 id="hero-title" data-i18n="hero.title">Local-first age encryption for Android.</h1>
-          <p class="hero-lede" data-i18n="hero.lede">Encrypt folders, decrypt archives, manage age keys, and keep every file operation on your Android device with a native Compose app.</p>
+          <p class="hero-lede" data-i18n="hero.lede">Encrypt folders as visible tree units, decrypt archives back into their original structure, manage age keys, and keep every file operation on your Android device.</p>
           <div class="hero-actions">
-            <a class="button green" href="https://github.com/vikiea/age_android/releases/download/v2.0.0/app-universal-release.apk" data-i18n="hero.download">Download Universal APK</a>
+            <a class="button green" href="https://github.com/vikiea/age_android/releases/download/v2.1.0/app-universal-release.apk" data-i18n="hero.download">Download Universal APK</a>
             <a class="button secondary" href="#screenshots" data-i18n="hero.secondary">View the app</a>
           </div>
           <div class="hero-meta" aria-label="Highlights">
             <div class="meta-card">
-              <strong>v2.0.0</strong>
+              <strong>v2.1.0</strong>
               <span data-i18n="hero.meta.release">Current release</span>
             </div>
             <div class="meta-card">
@@ -1066,12 +1066,12 @@ See LICENSE for details.
           <article class="feature-card">
             <span class="caption">01</span>
             <h3 data-i18n="features.cards.encrypt.title">Batch encryption</h3>
-            <p data-i18n="features.cards.encrypt.body">Pack selected files into tar or tar.gz, then encrypt one archive or separate encrypted outputs.</p>
+            <p data-i18n="features.cards.encrypt.body">Pack selected files and subfolders into tar or tar.gz, preserving relative paths for archive and separate outputs.</p>
           </article>
           <article class="feature-card">
             <span class="caption">02</span>
             <h3 data-i18n="features.cards.decrypt.title">Archive-aware decrypt</h3>
-            <p data-i18n="features.cards.decrypt.body">Decrypt .age files and restore packed content into a chosen local output directory.</p>
+            <p data-i18n="features.cards.decrypt.body">Decrypt .age files and restore packed content as a readable file tree in the chosen output directory.</p>
           </article>
           <article class="feature-card">
             <span class="caption">03</span>
@@ -1094,7 +1094,7 @@ See LICENSE for details.
           <h2 data-i18n="flow.title">Pick files, choose a secret, let the stream finish.</h2>
           <p data-i18n="flow.body">The app uses Android's storage access framework, Compose surfaces, bottom navigation, and local app storage instead of a remote upload flow.</p>
           <ul class="flow-list">
-            <li><span class="checkmark">✓</span><span data-i18n="flow.list.0">Outputs are organized into encrypted and decrypted folders.</span></li>
+            <li><span class="checkmark">✓</span><span data-i18n="flow.list.0">Subfolders stay as independent units and results are shown as trees.</span></li>
             <li><span class="checkmark">✓</span><span data-i18n="flow.list.1">Compression, duplicate handling, theme, and concurrency live in Settings.</span></li>
             <li><span class="checkmark">✓</span><span data-i18n="flow.list.2">Share intents route incoming files directly to encrypt or decrypt workflows.</span></li>
           </ul>
@@ -1191,23 +1191,23 @@ See LICENSE for details.
           <p data-i18n="download.body">Universal is the easiest choice for most users. ABI-specific builds are smaller and match the device architecture directly.</p>
         </div>
         <div class="download-list">
-          <a class="download-option" href="https://github.com/vikiea/age_android/releases/download/v2.0.0/app-universal-release.apk">
+          <a class="download-option" href="https://github.com/vikiea/age_android/releases/download/v2.1.0/app-universal-release.apk">
             <strong data-i18n="download.universal">Universal APK</strong>
-            <span>19.2 MB</span>
+            <span>21 MB</span>
           </a>
-          <a class="download-option" href="https://github.com/vikiea/age_android/releases/download/v2.0.0/app-arm64-v8a-release.apk">
+          <a class="download-option" href="https://github.com/vikiea/age_android/releases/download/v2.1.0/app-arm64-v8a-release.apk">
             <strong data-i18n="download.arm64">arm64-v8a APK</strong>
-            <span>6.8 MB</span>
-          </a>
-          <a class="download-option" href="https://github.com/vikiea/age_android/releases/download/v2.0.0/app-armeabi-v7a-release.apk">
-            <strong data-i18n="download.armv7">armeabi-v7a APK</strong>
-            <span>6.7 MB</span>
-          </a>
-          <a class="download-option" href="https://github.com/vikiea/age_android/releases/download/v2.0.0/app-x86_64-release.apk">
-            <strong data-i18n="download.x86">x86_64 APK</strong>
             <span>7.1 MB</span>
           </a>
-          <a class="text-link" href="https://github.com/vikiea/age_android/releases/tag/v2.0.0" data-i18n="download.release">Open release notes</a>
+          <a class="download-option" href="https://github.com/vikiea/age_android/releases/download/v2.1.0/app-armeabi-v7a-release.apk">
+            <strong data-i18n="download.armv7">armeabi-v7a APK</strong>
+            <span>7.3 MB</span>
+          </a>
+          <a class="download-option" href="https://github.com/vikiea/age_android/releases/download/v2.1.0/app-x86_64-release.apk">
+            <strong data-i18n="download.x86">x86_64 APK</strong>
+            <span>7.5 MB</span>
+          </a>
+          <a class="text-link" href="https://github.com/vikiea/age_android/releases/tag/v2.1.0" data-i18n="download.release">Open release notes</a>
         </div>
       </div>
     </section>
@@ -1225,7 +1225,7 @@ See LICENSE for details.
       </div>
       <div class="footer-links">
         <a class="text-link" href="https://github.com/vikiea/age_android/blob/main/LICENSE">MIT License</a>
-        <a class="text-link" href="https://github.com/vikiea/age_android/releases/tag/v2.0.0" data-i18n="footer.release">Latest release</a>
+        <a class="text-link" href="https://github.com/vikiea/age_android/releases/tag/v2.1.0" data-i18n="footer.release">Latest release</a>
       </div>
     </div>
   </footer>
@@ -1244,9 +1244,9 @@ See LICENSE for details.
           primary: "Download APK"
         },
         hero: {
-          eyebrow: "Latest public release v2.0.0",
+          eyebrow: "Latest public release v2.1.0",
           title: "Local-first age encryption for Android.",
-          lede: "Encrypt folders, decrypt archives, manage age keys, and keep every file operation on your Android device with a native Compose app.",
+          lede: "Encrypt folders as visible tree units, decrypt archives back into their original structure, manage age keys, and keep every file operation on your Android device.",
           download: "Download Universal APK",
           secondary: "View the app",
           meta: {
@@ -1269,11 +1269,11 @@ See LICENSE for details.
           cards: {
             encrypt: {
               title: "Batch encryption",
-              body: "Pack selected files into tar or tar.gz, then encrypt one archive or separate encrypted outputs."
+              body: "Pack selected files and subfolders into tar or tar.gz, preserving relative paths for archive and separate outputs."
             },
             decrypt: {
               title: "Archive-aware decrypt",
-              body: "Decrypt .age files and restore packed content into a chosen local output directory."
+              body: "Decrypt .age files and restore packed content as a readable file tree in the chosen output directory."
             },
             keys: {
               title: "Local key management",
@@ -1290,7 +1290,7 @@ See LICENSE for details.
           title: "Pick files, choose a secret, let the stream finish.",
           body: "The app uses Android's storage access framework, Compose surfaces, bottom navigation, and local app storage instead of a remote upload flow.",
           list: [
-            "Outputs are organized into encrypted and decrypted folders.",
+            "Subfolders stay as independent units and results are shown as trees.",
             "Compression, duplicate handling, theme, and concurrency live in Settings.",
             "Share intents route incoming files directly to encrypt or decrypt workflows."
           ]
@@ -1356,9 +1356,9 @@ See LICENSE for details.
           primary: "下载 APK"
         },
         hero: {
-          eyebrow: "最新公开版本 v2.0.0",
+          eyebrow: "最新公开版本 v2.1.0",
           title: "Android 上的本地优先 age 加密。",
-          lede: "加密文件夹、解密归档、管理 age 密钥，并让每一次文件处理都留在你的 Android 设备本地。",
+          lede: "将文件夹作为可见的树形单位加密，把归档解密回原始结构，管理 age 密钥，并让每一次文件处理都留在你的 Android 设备本地。",
           download: "下载 Universal APK",
           secondary: "查看界面",
           meta: {
@@ -1381,11 +1381,11 @@ See LICENSE for details.
           cards: {
             encrypt: {
               title: "批量加密",
-              body: "将选择的文件打包为 tar 或 tar.gz，再加密为单个归档或分别输出多个密文。"
+              body: "将选择的文件和子文件夹打包为 tar 或 tar.gz，归档和分别输出都会保留相对路径。"
             },
             decrypt: {
               title: "归档感知解密",
-              body: "解密 .age 文件，并把打包内容恢复到你选择的本地输出目录。"
+              body: "解密 .age 文件，并把打包内容以清晰的文件树恢复到你选择的输出目录。"
             },
             keys: {
               title: "本地密钥管理",
@@ -1402,7 +1402,7 @@ See LICENSE for details.
           title: "选择文件，选择密钥，让流式任务完成。",
           body: "应用使用 Android 存储访问框架、Compose 界面、底部导航和本地应用存储，而不是远程上传式流程。",
           list: [
-            "输出会整理到 encrypted 和 decrypted 文件夹。",
+            "子文件夹会作为独立单位保留，结果也按树结构展示。",
             "压缩、重名处理、主题和并发数都在设置中管理。",
             "来自其他应用的分享文件会自动进入加密或解密流程。"
           ]

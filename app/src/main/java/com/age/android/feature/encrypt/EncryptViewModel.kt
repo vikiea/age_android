@@ -13,6 +13,9 @@ import com.age.android.core.data.DuplicateStrategy
 import com.age.android.core.data.KeyRepository
 import com.age.android.core.data.OperationRepository
 import com.age.android.core.data.SettingsDataStore
+import com.age.android.core.file.FileSelectionKind
+import com.age.android.core.file.SelectedFileItem
+import com.age.android.core.file.SelectedFileLeaf
 import com.age.android.core.model.*
 import com.age.android.core.util.FileHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,7 +31,13 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 
-data class FileItem(val uri: Uri, val name: String)
+data class FileItem(
+    val uri: Uri,
+    val name: String,
+    val relativePath: String,
+    val kind: FileSelectionKind,
+    val files: List<SelectedFileLeaf>
+)
 
 data class EncryptUiState(
     val mode: EncryptMode = EncryptMode.BATCH_PACK,
@@ -136,15 +145,25 @@ class EncryptViewModel @Inject constructor(
 
     fun addFiles(uris: List<Uri>) {
         val existingUris = _uiState.value.files.map { it.uri }.toSet()
-        val newFiles = uris.filter { it !in existingUris }.map { uri -> FileItem(uri, fileHelper.getFileName(uri)) }
+        val newFiles = uris.filter { it !in existingUris }.map { uri ->
+            val name = normalizeRelativePath(fileHelper.getFileName(uri))
+            FileItem(
+                uri = uri,
+                name = name,
+                relativePath = name,
+                kind = FileSelectionKind.FILE,
+                files = listOf(SelectedFileLeaf(uri = uri, name = name, relativePath = name))
+            )
+        }
         if (newFiles.isEmpty()) return
         _uiState.update { it.copy(files = it.files + newFiles) }
     }
 
     fun addFilesFromFolder(dirUri: Uri) {
-        val dirFiles = fileHelper.listFilesInDir(dirUri)
         val existingUris = _uiState.value.files.map { it.uri }.toSet()
-        val newFiles = dirFiles.filter { it.uri !in existingUris }.map { FileItem(it.uri, it.name) }
+        val newFiles = fileHelper.listSelectableItemsInDir(dirUri)
+            .filter { it.uri !in existingUris }
+            .map { it.toFileItem() }
         _uiState.update { it.copy(files = it.files + newFiles) }
     }
 
@@ -186,8 +205,8 @@ class EncryptViewModel @Inject constructor(
         val customUriStr = customOutputDir.value
         if (customUriStr != null) {
             // Custom dir: read via SAF API, skip cache cleanup to preserve SAF-cached files
-            val subDirUri = fileHelper.getSubDirUri(Uri.parse(customUriStr), "encrypted") ?: return
-            val files = state.outputFiles.mapNotNull { fileHelper.readSafFileToCache(subDirUri, it) }
+            val rootUri = Uri.parse(customUriStr)
+            val files = state.outputFiles.mapNotNull { fileHelper.readSafFileToCacheRelative(rootUri, "encrypted", it) }
             if (files.isNotEmpty()) fileHelper.shareFiles(files)
         } else {
             // Fallback dir: direct file access
@@ -225,12 +244,13 @@ class EncryptViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isProcessing = true, error = null, result = null, progress = 0f, phase = "", processedCount = 0, totalCount = state.files.size, successCount = 0, failCount = 0, outputFiles = emptyList(), outputDir = null) }
+            val inputLeaves = state.inputLeaves()
+            _uiState.update { it.copy(isProcessing = true, error = null, result = null, progress = 0f, phase = "", processedCount = 0, totalCount = inputLeaves.size, successCount = 0, failCount = 0, outputFiles = emptyList(), outputDir = null) }
 
             val record = OperationRecord(
                 type = OperationType.ENCRYPT,
                 mode = state.mode,
-                inputFiles = state.files.map { it.name },
+                inputFiles = state.files.map { it.displayPath() },
                 outputPath = state.outputFileName,
                 recipientInfo = if (state.usePassphrase) "密码加密" else state.selectedPublicKey.take(20) + "...",
                 status = OperationStatus.RUNNING
@@ -257,7 +277,8 @@ class EncryptViewModel @Inject constructor(
     private suspend fun getStrategy(): DuplicateStrategy = settingsDataStore.getDuplicateStrategyOnce()
 
     private suspend fun batchEncrypt(state: EncryptUiState): List<String> {
-        val totalFiles = state.files.size
+        val files = state.inputLeaves()
+        val totalFiles = files.size
         val concurrency = settingsDataStore.getConcurrencyOnce()
 
         // Phase 1: Concurrent stream URIs to temp files
@@ -270,7 +291,7 @@ class EncryptViewModel @Inject constructor(
             coroutineScope {
                 val semaphore = Semaphore(concurrency)
                 val doneCount = AtomicInteger(0)
-                state.files.mapIndexed { index, file ->
+                files.mapIndexed { index, file ->
                     async {
                         semaphore.withPermit {
                             val temp = fileHelper.streamUriToTemp(file.uri, "src_$index")
@@ -286,7 +307,7 @@ class EncryptViewModel @Inject constructor(
             // Tar/tar.gz via Go engine (true streaming, ~32KB memory for gzip)
             val tarFile = File(fileHelper.getCacheDir(), "batch_${System.currentTimeMillis()}.tar${if (state.compressEnabled) ".gz" else ""}")
             val pathsDelim = tempFiles.filterNotNull().joinToString("\n") { it.absolutePath }
-            val namesDelim = state.files.joinToString("\n") { it.name }
+            val namesDelim = files.joinToString("\n") { it.relativePath }
             if (state.compressEnabled) {
                 ageEngine.tarGzipFilesDelim(pathsDelim, namesDelim, tarFile.absolutePath)
             } else {
@@ -328,11 +349,12 @@ class EncryptViewModel @Inject constructor(
         val failCount = AtomicInteger(0)
         val processedCount = AtomicInteger(0)
         val outputNames = java.util.concurrent.ConcurrentLinkedQueue<String>()
+        val files = state.inputLeaves()
 
         coroutineScope {
             val semaphore = Semaphore(concurrency)
-            val totalFiles = state.files.size
-            state.files.mapIndexed { index, file ->
+            val totalFiles = files.size
+            files.mapIndexed { index, file ->
                 async {
                     semaphore.withPermit {
                         var sourceTemp: File? = null
@@ -354,11 +376,10 @@ class EncryptViewModel @Inject constructor(
                                 ageEngine.encryptStreamToFileWithKey(tarTemp.absolutePath, encryptedTemp.absolutePath, state.selectedPublicKey)
                             }
 
-                            val baseName = file.name.substringBeforeLast(".")
-                            val outName = "${baseName}.tar.age"
-                            writeOutputFile(outName, encryptedTemp)
+                            val outName = encryptedRelativePath(file.relativePath)
+                            val actualName = writeOutputFile(outName, encryptedTemp)
                             successCount.incrementAndGet()
-                            outputNames.add(outName)
+                            outputNames.add(actualName)
                         } catch (_: Exception) {
                             failCount.incrementAndGet()
                         } finally {
@@ -392,20 +413,37 @@ class EncryptViewModel @Inject constructor(
         val customUriStr = customOutputDir.value
         if (customUriStr != null) {
             val customUri = Uri.parse(customUriStr)
-            val subDirUri = fileHelper.getSubDirUri(customUri, "encrypted")
-                ?: throw Exception("无法创建输出子目录")
             val strategy = getStrategy()
-            val actualName = if (strategy == DuplicateStrategy.RENAME) fileHelper.getUniqueSafFileName(subDirUri, fileName) else fileName
-            if (!fileHelper.copyFileToSaf(subDirUri, actualName, srcFile)) {
-                throw Exception("写入文件失败")
-            }
-            return actualName
+            return fileHelper.copyFileToSafRelative(customUri, "encrypted", fileName, srcFile, strategy)
+                ?: throw Exception("写入文件失败")
         } else {
             val strategy = getStrategy()
             val outDir = getOutputDir()
-            val outFile = if (strategy == DuplicateStrategy.RENAME) fileHelper.getUniqueFile(outDir, fileName) else File(outDir, fileName)
-            srcFile.copyTo(outFile, overwrite = true)
-            return outFile.name
+            return fileHelper.copyFileToDirRelative(outDir, fileName, srcFile, strategy)
         }
     }
+}
+
+private fun SelectedFileItem.toFileItem(): FileItem =
+    FileItem(
+        uri = uri,
+        name = name,
+        relativePath = relativePath,
+        kind = kind,
+        files = files
+    )
+
+private fun EncryptUiState.inputLeaves(): List<SelectedFileLeaf> =
+    files.flatMap { it.files }
+
+private fun FileItem.displayPath(): String =
+    if (kind == FileSelectionKind.FOLDER) "$relativePath/" else relativePath
+
+private fun encryptedRelativePath(relativePath: String): String {
+    val safePath = normalizeRelativePath(relativePath)
+    val parent = safePath.substringBeforeLast("/", "")
+    val fileName = safePath.substringAfterLast("/")
+    val baseName = fileName.substringBeforeLast(".", fileName).ifBlank { fileName }
+    val encryptedName = "$baseName.tar.age"
+    return if (parent.isBlank()) encryptedName else "$parent/$encryptedName"
 }

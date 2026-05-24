@@ -6,6 +6,7 @@ Android native app wrapping the [age](https://filippo.io/age) encryption tool wi
 
 - **Batch encryption**: Pack multiple files into tar/tar.gz, then encrypt as `.tar.gz.age` or `.tar.age`
 - **Separate encryption**: Encrypt individual files as `.tar.age` (original extension hidden)
+- **Folder tree handling**: Selected subfolders stay as removable units, with nested files shown and restored in a file-manager style tree
 - **Passphrase & public key encryption**: Support both scrypt passphrase and X25519 key pair
 - **Streaming I/O**: Entire pipeline uses streaming — handles 1GB+ files without OOM
 - **Go engine**: tar/tar.gz compression and age encryption via gomobile, ~32KB memory footprint
@@ -50,7 +51,7 @@ Android native app wrapping the [age](https://filippo.io/age) encryption tool wi
 
 | Layer | Technology |
 |-------|-----------|
-| App version | 2.0.0 (`versionCode` 5) |
+| App version | 2.1.0 (`versionCode` 6) |
 | Language | Kotlin 2.3.10, Go 1.25 |
 | Android | compileSdk 36, minSdk 26, targetSdk 35 |
 | UI | Jetpack Compose BOM 2026.02.00, Material3, `io.github.kyant0:backdrop` |
@@ -61,7 +62,7 @@ Android native app wrapping the [age](https://filippo.io/age) encryption tool wi
 | File / archive | AndroidX DocumentFile, Apache Commons Compress, FileProvider |
 | Networking | OkHttp 4.12.0 for update checks |
 | Security UX | AndroidX Biometric 1.1.0 for private-key reveal |
-| Crypto | [filippo.io/age](https://filippo.io/age) 1.2.1 |
+| Crypto | [filippo.io/age](https://filippo.io/age) 1.3.1 |
 | Native | gomobile → AAR / extracted JNI libs |
 | Build | Gradle 8.14, Android Gradle Plugin 8.13.2 |
 
@@ -104,7 +105,7 @@ Run `make help` for all available commands.
 | Batch pack | No | `.tar.age` |
 | Separate | — | `.tar.age` |
 
-All files are tar-packed before encryption to hide original file extensions. Decryption restores tar/tar.gz archives when detected, and falls back to single-file `.age` output for non-archive payloads.
+All files are tar-packed before encryption to hide original file extensions. Folder selections keep their relative paths in the archive, and decryption restores tar/tar.gz archives into the same tree structure when detected. Non-archive `.age` payloads fall back to single-file output.
 
 ## Privacy
 

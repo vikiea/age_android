@@ -38,6 +38,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.age.android.core.model.OperationRecord
 import com.age.android.core.model.OperationStatus
 import com.age.android.core.model.OperationType
+import com.age.android.ui.components.FilePathTreeView
 import com.age.android.ui.glass.GlassBackdrop
 import com.age.android.ui.glass.GlassEmphasis
 import com.age.android.ui.glass.GlassSurface
@@ -193,9 +194,7 @@ private fun FileInfoSection(
                 modifier = Modifier.padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                op.inputFiles.forEach { file ->
-                    Text(file, style = MaterialTheme.typography.bodyMedium)
-                }
+                FilePathTreeView(paths = op.inputFiles)
             }
         }
         HorizontalDivider()

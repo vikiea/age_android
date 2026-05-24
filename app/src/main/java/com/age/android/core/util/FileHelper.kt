@@ -10,6 +10,11 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
+import com.age.android.core.data.DuplicateStrategy
+import com.age.android.core.file.FileSelectionKind
+import com.age.android.core.file.SelectedFileItem
+import com.age.android.core.file.SelectedFileLeaf
+import com.age.android.core.model.normalizeRelativePath
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
@@ -29,14 +34,52 @@ class FileHelper @Inject constructor(
     data class DirFile(val uri: Uri, val name: String)
 
     fun listFilesInDir(dirUri: Uri): List<DirFile> {
-        val results = mutableListOf<DirFile>()
-        val dir = DocumentFile.fromTreeUri(context, dirUri) ?: return results
-        dir.listFiles().forEach { file ->
-            if (file.isFile && file.name != null) {
-                results.add(DirFile(file.uri, file.name!!))
+        return listSelectableItemsInDir(dirUri)
+            .flatMap { item -> item.files.map { DirFile(it.uri, it.relativePath) } }
+    }
+
+    fun listSelectableItemsInDir(dirUri: Uri): List<SelectedFileItem> {
+        val root = DocumentFile.fromTreeUri(context, dirUri) ?: return emptyList()
+        return root.listFiles()
+            .sortedWith(compareByDescending<DocumentFile> { it.isDirectory }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name.orEmpty() })
+            .mapNotNull { file ->
+                val name = file.name ?: return@mapNotNull null
+                val relativePath = normalizeRelativePath(name)
+                when {
+                    file.isFile -> SelectedFileItem(
+                        uri = file.uri,
+                        name = name,
+                        relativePath = relativePath,
+                        kind = FileSelectionKind.FILE,
+                        files = listOf(SelectedFileLeaf(file.uri, name, relativePath))
+                    )
+                    file.isDirectory -> {
+                        val leaves = collectFileLeaves(file, relativePath)
+                        if (leaves.isEmpty()) null else SelectedFileItem(
+                            uri = file.uri,
+                            name = name,
+                            relativePath = relativePath,
+                            kind = FileSelectionKind.FOLDER,
+                            files = leaves
+                        )
+                    }
+                    else -> null
+                }
             }
-        }
-        return results
+    }
+
+    private fun collectFileLeaves(dir: DocumentFile, dirPath: String): List<SelectedFileLeaf> {
+        return dir.listFiles()
+            .sortedWith(compareByDescending<DocumentFile> { it.isDirectory }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name.orEmpty() })
+            .flatMap { child ->
+                val childName = child.name ?: return@flatMap emptyList()
+                val childPath = normalizeRelativePath("$dirPath/$childName")
+                when {
+                    child.isFile -> listOf(SelectedFileLeaf(child.uri, childName, childPath))
+                    child.isDirectory -> collectFileLeaves(child, childPath)
+                    else -> emptyList()
+                }
+            }
     }
 
     fun readUri(uri: Uri): ByteArray? {
@@ -87,6 +130,27 @@ class FileHelper @Inject constructor(
             if (!candidate.exists()) return candidate
             counter++
         }
+    }
+
+    fun copyFileToDirRelative(baseDir: File, relativePath: String, srcFile: File, strategy: DuplicateStrategy): String {
+        val outFile = getOutputFileForRelativePath(baseDir, relativePath, strategy)
+        srcFile.copyTo(outFile, overwrite = true)
+        return outFile.relativeTo(baseDir).path.replace(File.separatorChar, '/')
+    }
+
+    fun writeStreamToDirRelative(baseDir: File, relativePath: String, input: InputStream, strategy: DuplicateStrategy): String {
+        val outFile = getOutputFileForRelativePath(baseDir, relativePath, strategy)
+        outFile.outputStream().use { output -> input.copyTo(output, bufferSize = 8192) }
+        return outFile.relativeTo(baseDir).path.replace(File.separatorChar, '/')
+    }
+
+    private fun getOutputFileForRelativePath(baseDir: File, relativePath: String, strategy: DuplicateStrategy): File {
+        val safePath = normalizeRelativePath(relativePath)
+        val parentPath = safePath.substringBeforeLast("/", "")
+        val fileName = safePath.substringAfterLast("/")
+        val parentDir = if (parentPath.isBlank()) baseDir else File(baseDir, parentPath)
+        if (!parentDir.exists()) parentDir.mkdirs()
+        return if (strategy == DuplicateStrategy.RENAME) getUniqueFile(parentDir, fileName) else File(parentDir, fileName)
     }
 
     fun getUniqueDocumentFileName(parentUri: Uri, fileName: String): String {
@@ -150,6 +214,33 @@ class FileHelper @Inject constructor(
         }
     }
 
+    fun readSafFileToCacheRelative(rootUri: Uri, subDirName: String, relativePath: String): File? {
+        return try {
+            val safePath = normalizeRelativePath(relativePath)
+            val root = DocumentFile.fromTreeUri(context, rootUri) ?: return null
+            val subDir = root.findFile(subDirName)?.takeIf { it.isDirectory } ?: return null
+            val docFile = findNestedDocumentFile(subDir, safePath) ?: return null
+            val shareDir = File(getCacheDir(), "share")
+            val target = File(shareDir, safePath)
+            target.parentFile?.mkdirs()
+            context.contentResolver.openInputStream(docFile.uri)?.use { input ->
+                target.outputStream().use { output -> input.copyTo(output) }
+            }
+            target
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun findNestedDocumentFile(root: DocumentFile, relativePath: String): DocumentFile? {
+        val parts = normalizeRelativePath(relativePath).split('/')
+        var current = root
+        parts.dropLast(1).forEach { segment ->
+            current = current.findFile(segment)?.takeIf { it.isDirectory } ?: return null
+        }
+        return current.findFile(parts.last())
+    }
+
     fun copyFileToSaf(dirUri: Uri, fileName: String, srcFile: File): Boolean {
         return try {
             val dir = DocumentFile.fromTreeUri(context, dirUri) ?: return false
@@ -161,6 +252,20 @@ class FileHelper @Inject constructor(
             true
         } catch (e: Exception) {
             false
+        }
+    }
+
+    fun copyFileToSafRelative(rootUri: Uri, subDirName: String, relativePath: String, srcFile: File, strategy: DuplicateStrategy): String? {
+        return try {
+            val target = getSafOutputTarget(rootUri, subDirName, relativePath, strategy) ?: return null
+            target.parent.findFile(target.fileName)?.delete()
+            val file = target.parent.createFile("application/octet-stream", target.fileName) ?: return null
+            context.contentResolver.openOutputStream(file.uri)?.use { out ->
+                srcFile.inputStream().use { input -> input.copyTo(out) }
+            }
+            target.relativePath
+        } catch (e: Exception) {
+            null
         }
     }
 
@@ -188,6 +293,60 @@ class FileHelper @Inject constructor(
             true
         } catch (e: Exception) {
             false
+        }
+    }
+
+    fun writeStreamToSafRelative(rootUri: Uri, subDirName: String, relativePath: String, input: InputStream, strategy: DuplicateStrategy): String? {
+        return try {
+            val target = getSafOutputTarget(rootUri, subDirName, relativePath, strategy) ?: return null
+            target.parent.findFile(target.fileName)?.delete()
+            val file = target.parent.createFile("application/octet-stream", target.fileName) ?: return null
+            context.contentResolver.openOutputStream(file.uri)?.use { output ->
+                input.copyTo(output, bufferSize = 8192)
+            }
+            target.relativePath
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private data class SafOutputTarget(
+        val parent: DocumentFile,
+        val fileName: String,
+        val relativePath: String
+    )
+
+    private fun getSafOutputTarget(rootUri: Uri, subDirName: String, relativePath: String, strategy: DuplicateStrategy): SafOutputTarget? {
+        val safePath = normalizeRelativePath(relativePath)
+        val root = DocumentFile.fromTreeUri(context, rootUri) ?: return null
+        var current = getOrCreateDirectory(root, subDirName) ?: return null
+        val parentPath = safePath.substringBeforeLast("/", "")
+        if (parentPath.isNotBlank()) {
+            parentPath.split('/').forEach { segment ->
+                current = getOrCreateDirectory(current, segment) ?: return null
+            }
+        }
+        val requestedName = safePath.substringAfterLast("/")
+        val fileName = if (strategy == DuplicateStrategy.RENAME) getUniqueSafFileName(current, requestedName) else requestedName
+        val actualPath = if (parentPath.isBlank()) fileName else "$parentPath/$fileName"
+        return SafOutputTarget(current, fileName, actualPath)
+    }
+
+    private fun getOrCreateDirectory(parent: DocumentFile, name: String): DocumentFile? {
+        val existing = parent.findFile(name)
+        if (existing != null && existing.isDirectory) return existing
+        return parent.createDirectory(name)
+    }
+
+    private fun getUniqueSafFileName(dir: DocumentFile, fileName: String): String {
+        val baseName = fileName.substringBeforeLast(".", "")
+        val ext = if (baseName.isNotEmpty() && fileName.contains(".")) ".${fileName.substringAfterLast(".")}" else ""
+        if (dir.findFile(fileName) == null) return fileName
+        var counter = 1
+        while (true) {
+            val candidate = "${baseName}_$counter$ext"
+            if (dir.findFile(candidate) == null) return candidate
+            counter++
         }
     }
 

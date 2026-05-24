@@ -13,6 +13,9 @@ import com.age.android.core.data.DuplicateStrategy
 import com.age.android.core.data.KeyRepository
 import com.age.android.core.data.OperationRepository
 import com.age.android.core.data.SettingsDataStore
+import com.age.android.core.file.FileSelectionKind
+import com.age.android.core.file.SelectedFileItem
+import com.age.android.core.file.SelectedFileLeaf
 import com.age.android.core.model.*
 import com.age.android.core.util.FileHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,7 +31,13 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 
-data class DecryptFileItem(val uri: Uri, val name: String)
+data class DecryptFileItem(
+    val uri: Uri,
+    val name: String,
+    val relativePath: String,
+    val kind: FileSelectionKind,
+    val files: List<SelectedFileLeaf>
+)
 
 data class DecryptUiState(
     val files: List<DecryptFileItem> = emptyList(),
@@ -75,15 +84,25 @@ class DecryptViewModel @Inject constructor(
 
     fun addFiles(uris: List<Uri>) {
         val existingUris = _uiState.value.files.map { it.uri }.toSet()
-        val newFiles = uris.filter { it !in existingUris }.map { uri -> DecryptFileItem(uri, fileHelper.getFileName(uri)) }
+        val newFiles = uris.filter { it !in existingUris }.map { uri ->
+            val name = normalizeRelativePath(fileHelper.getFileName(uri))
+            DecryptFileItem(
+                uri = uri,
+                name = name,
+                relativePath = name,
+                kind = FileSelectionKind.FILE,
+                files = listOf(SelectedFileLeaf(uri = uri, name = name, relativePath = name))
+            )
+        }
         if (newFiles.isEmpty()) return
         _uiState.update { it.copy(files = it.files + newFiles) }
     }
 
     fun addFilesFromFolder(dirUri: Uri) {
-        val dirFiles = fileHelper.listFilesInDir(dirUri)
         val existingUris = _uiState.value.files.map { it.uri }.toSet()
-        val newFiles = dirFiles.filter { it.uri !in existingUris }.map { DecryptFileItem(it.uri, it.name) }
+        val newFiles = fileHelper.listSelectableItemsInDir(dirUri)
+            .filter { it.uri !in existingUris }
+            .map { it.toDecryptFileItem() }
         _uiState.update { it.copy(files = it.files + newFiles) }
     }
 
@@ -125,8 +144,8 @@ class DecryptViewModel @Inject constructor(
         val customUriStr = customOutputDir.value
         if (customUriStr != null) {
             // Custom dir: read via SAF API, skip cache cleanup to preserve SAF-cached files
-            val subDirUri = fileHelper.getSubDirUri(Uri.parse(customUriStr), "decrypted") ?: return
-            val files = state.outputFiles.mapNotNull { fileHelper.readSafFileToCache(subDirUri, it) }
+            val rootUri = Uri.parse(customUriStr)
+            val files = state.outputFiles.mapNotNull { fileHelper.readSafFileToCacheRelative(rootUri, "decrypted", it) }
             if (files.isNotEmpty()) fileHelper.shareFiles(files)
         } else {
             // Fallback dir: direct file access
@@ -164,13 +183,14 @@ class DecryptViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isProcessing = true, error = null, result = null, progress = 0f, processedCount = 0, totalCount = state.files.size, successCount = 0, failCount = 0, outputFiles = emptyList(), outputDir = null) }
+            val inputLeaves = state.inputLeaves()
+            _uiState.update { it.copy(isProcessing = true, error = null, result = null, progress = 0f, processedCount = 0, totalCount = inputLeaves.size, successCount = 0, failCount = 0, outputFiles = emptyList(), outputDir = null) }
 
             val outDirPath = getOutputDir().absolutePath
             val record = OperationRecord(
                 type = OperationType.DECRYPT,
                 mode = EncryptMode.DECRYPT,
-                inputFiles = state.files.map { it.name },
+                inputFiles = state.files.map { it.displayPath() },
                 outputPath = outDirPath,
                 recipientInfo = if (state.usePassphrase) "密码解密" else "私钥解密",
                 status = OperationStatus.RUNNING
@@ -184,11 +204,12 @@ class DecryptViewModel @Inject constructor(
                 val processedCount = AtomicInteger(0)
                 val outputNames = java.util.concurrent.ConcurrentLinkedQueue<String>()
                 val strategy = settingsDataStore.getDuplicateStrategyOnce()
-                val totalFiles = state.files.size
+                val files = state.inputLeaves()
+                val totalFiles = files.size
 
                 coroutineScope {
                     val semaphore = Semaphore(concurrency)
-                    state.files.mapIndexed { index, file ->
+                    files.mapIndexed { index, file ->
                         async {
                             semaphore.withPermit {
                                 var sourceTemp: java.io.File? = null
@@ -201,14 +222,14 @@ class DecryptViewModel @Inject constructor(
                                     } else {
                                         ageEngine.decryptStreamToFileWithKey(sourceTemp.absolutePath, decryptedTemp.absolutePath, state.selectedPrivateKey)
                                     }
-                                    sourceTemp?.let { fileHelper.deleteTempFile(it) }
+                                    fileHelper.deleteTempFile(sourceTemp)
                                     sourceTemp = null
 
                                     var isTar = false
                                     try {
                                         fileHelper.untarStreaming(decryptedTemp) { entryName, entryStream, entrySize ->
-                                            writeStreamToFile(entryName, entryStream, entrySize, strategy)
-                                            outputNames.add(entryName)
+                                            val actualName = writeStreamToFile(entryName, entryStream, entrySize, strategy)
+                                            outputNames.add(actualName)
                                         }
                                         isTar = true
                                         successCount.incrementAndGet()
@@ -217,8 +238,8 @@ class DecryptViewModel @Inject constructor(
                                     if (!isTar) {
                                         try {
                                             fileHelper.untarGzipStreaming(decryptedTemp) { entryName, entryStream, entrySize ->
-                                                writeStreamToFile(entryName, entryStream, entrySize, strategy)
-                                                outputNames.add(entryName)
+                                                val actualName = writeStreamToFile(entryName, entryStream, entrySize, strategy)
+                                                outputNames.add(actualName)
                                             }
                                             isTar = true
                                             successCount.incrementAndGet()
@@ -226,16 +247,16 @@ class DecryptViewModel @Inject constructor(
                                     }
 
                                     if (!isTar) {
-                                        val outName = file.name.removeSuffix(".age").ifEmpty { "decrypted_output" }
+                                        val outName = decryptedRelativePath(file.relativePath)
                                         val decompressedTemp = try {
                                             fileHelper.gunzipToTemp(decryptedTemp)
                                         } catch (_: Exception) {
                                             decryptedTemp
                                         }
-                                        writeOutputFromTemp(outName, decompressedTemp, strategy)
+                                        val actualName = writeOutputFromTemp(outName, decompressedTemp, strategy)
                                         if (decompressedTemp !== decryptedTemp) fileHelper.deleteTempFile(decompressedTemp)
                                         successCount.incrementAndGet()
-                                        outputNames.add(outName)
+                                        outputNames.add(actualName)
                                     }
                                 } catch (_: Exception) {
                                     failCount.incrementAndGet()
@@ -270,37 +291,45 @@ class DecryptViewModel @Inject constructor(
         }
     }
 
-    private fun writeStreamToFile(name: String, input: java.io.InputStream, size: Long, strategy: DuplicateStrategy) {
+    private fun writeStreamToFile(name: String, input: java.io.InputStream, size: Long, strategy: DuplicateStrategy): String {
         val customUriStr = customOutputDir.value
         if (customUriStr != null) {
             val customUri = Uri.parse(customUriStr)
-            val subDirUri = fileHelper.getSubDirUri(customUri, "decrypted")
-                ?: throw Exception("无法创建输出子目录")
-            val actualName = if (strategy == DuplicateStrategy.RENAME) fileHelper.getUniqueSafFileName(subDirUri, name) else name
-            if (!fileHelper.writeStreamToSafFile(subDirUri, actualName, input)) {
-                throw Exception("写入文件失败")
-            }
+            return fileHelper.writeStreamToSafRelative(customUri, "decrypted", name, input, strategy)
+                ?: throw Exception("写入文件失败")
         } else {
             val outDir = getOutputDir()
-            val outFile = if (strategy == DuplicateStrategy.RENAME) fileHelper.getUniqueFile(outDir, name) else File(outDir, name)
-            outFile.outputStream().use { output -> input.copyTo(output, bufferSize = 8192) }
+            return fileHelper.writeStreamToDirRelative(outDir, name, input, strategy)
         }
     }
 
-    private fun writeOutputFromTemp(name: String, srcFile: java.io.File, strategy: DuplicateStrategy) {
+    private fun writeOutputFromTemp(name: String, srcFile: java.io.File, strategy: DuplicateStrategy): String {
         val customUriStr = customOutputDir.value
         if (customUriStr != null) {
             val customUri = Uri.parse(customUriStr)
-            val subDirUri = fileHelper.getSubDirUri(customUri, "decrypted")
-                ?: throw Exception("无法创建输出子目录")
-            val actualName = if (strategy == DuplicateStrategy.RENAME) fileHelper.getUniqueSafFileName(subDirUri, name) else name
-            if (!fileHelper.copyFileToSaf(subDirUri, actualName, srcFile)) {
-                throw Exception("写入文件失败")
-            }
+            return fileHelper.copyFileToSafRelative(customUri, "decrypted", name, srcFile, strategy)
+                ?: throw Exception("写入文件失败")
         } else {
             val outDir = getOutputDir()
-            val outFile = if (strategy == DuplicateStrategy.RENAME) fileHelper.getUniqueFile(outDir, name) else File(outDir, name)
-            srcFile.copyTo(outFile, overwrite = true)
+            return fileHelper.copyFileToDirRelative(outDir, name, srcFile, strategy)
         }
     }
 }
+
+private fun SelectedFileItem.toDecryptFileItem(): DecryptFileItem =
+    DecryptFileItem(
+        uri = uri,
+        name = name,
+        relativePath = relativePath,
+        kind = kind,
+        files = files
+    )
+
+private fun DecryptUiState.inputLeaves(): List<SelectedFileLeaf> =
+    files.flatMap { it.files }
+
+private fun DecryptFileItem.displayPath(): String =
+    if (kind == FileSelectionKind.FOLDER) "$relativePath/" else relativePath
+
+private fun decryptedRelativePath(relativePath: String): String =
+    normalizeRelativePath(relativePath).removeSuffix(".age").ifEmpty { "decrypted_output" }

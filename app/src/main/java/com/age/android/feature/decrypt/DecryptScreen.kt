@@ -27,6 +27,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.age.android.core.model.buildFileTree
+import com.age.android.ui.components.FilePathTreeView
+import com.age.android.ui.components.FileTreeView
 import com.age.android.ui.glass.GlassActionFooter
 import com.age.android.ui.glass.GlassBackdrop
 import com.age.android.ui.glass.GlassButton
@@ -113,7 +116,7 @@ fun DecryptScreen(
                         GlassTonalSurface(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
-                                    Text("已选文件 (${uiState.files.size})", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                                    Text("已选项目 (${uiState.files.sumOf { it.files.size }} 个文件)", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
                                     GlassTextButton(onClick = { viewModel.clearFiles() }, enabled = !uiState.isProcessing) {
                                         Text("清空", style = MaterialTheme.typography.labelSmall)
                                     }
@@ -122,10 +125,13 @@ fun DecryptScreen(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(vertical = 4.dp, horizontal = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                            .padding(vertical = 4.dp, horizontal = 4.dp),
+                                        verticalAlignment = Alignment.Top
                                     ) {
-                                        Text(file.name, maxLines = 1, modifier = Modifier.weight(1f))
+                                        FileTreeView(
+                                            nodes = buildFileTree(file.files.map { it.relativePath }),
+                                            modifier = Modifier.weight(1f)
+                                        )
                                         IconButton(onClick = { viewModel.removeFile(index) }, enabled = !uiState.isProcessing, modifier = Modifier.size(32.dp)) {
                                             Icon(Icons.Default.Close, contentDescription = "移除", modifier = Modifier.size(18.dp))
                                         }
@@ -223,7 +229,9 @@ fun DecryptScreen(
                 ) {
                     Text(it)
                     uiState.outputDir?.let { dir -> Text("目录: $dir", style = MaterialTheme.typography.bodySmall) }
-                    uiState.outputFiles.forEach { name -> Text("  $name", style = MaterialTheme.typography.bodySmall) }
+                    if (uiState.outputFiles.isNotEmpty()) {
+                        FilePathTreeView(paths = uiState.outputFiles)
+                    }
                 }
             }
 

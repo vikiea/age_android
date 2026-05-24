@@ -5,6 +5,9 @@ import com.age.android.core.data.KeyRepository
 import com.age.android.core.data.OperationRepository
 import com.age.android.core.data.DuplicateStrategy
 import com.age.android.core.data.SettingsDataStore
+import com.age.android.core.file.FileSelectionKind
+import com.age.android.core.file.SelectedFileItem
+import com.age.android.core.file.SelectedFileLeaf
 import com.age.android.core.model.EncryptMode
 import com.age.android.core.util.FileHelper
 import io.mockk.*
@@ -34,7 +37,19 @@ class EncryptViewModelTest {
         keyRepository = mockk { every { getAllKeys() } returns flowOf(emptyList()) }
         operationRepository = mockk { coEvery { insertOperation(any()) } returns 1L; coEvery { updateOperation(any()) } just Runs }
         fileHelper = mockk()
-        settingsDataStore = mockk { every { outputDirUri } returns flowOf(null); every { duplicateStrategy } returns flowOf(DuplicateStrategy.RENAME) }
+        settingsDataStore = mockk {
+            every { outputDirUri } returns flowOf(null)
+            every { duplicateStrategy } returns flowOf(DuplicateStrategy.RENAME)
+            every { compressEnabled } returns flowOf(true)
+            coEvery { getEncryptModeOnce() } returns null
+            coEvery { getEncryptUsePassphraseOnce() } returns true
+            coEvery { getSelectedPublicKeyOnce() } returns ""
+            coEvery { getCompressEnabledOnce() } returns true
+            coEvery { setEncryptMode(any()) } just Runs
+            coEvery { setCompressEnabled(any()) } just Runs
+            coEvery { setEncryptUsePassphrase(any()) } just Runs
+            coEvery { setSelectedPublicKey(any()) } just Runs
+        }
         viewModel = EncryptViewModel(ageEngine, keyRepository, operationRepository, fileHelper, settingsDataStore)
     }
 
@@ -62,5 +77,32 @@ class EncryptViewModelTest {
     fun `startEncrypt with no files shows error`() {
         viewModel.startEncrypt()
         assertEquals("请先选择文件", viewModel.uiState.value.error)
+    }
+
+    @Test
+    fun `addFilesFromFolder keeps top level subfolder as independent item`() {
+        val dirUri = mockk<android.net.Uri>()
+        val folderUri = mockk<android.net.Uri>()
+        every { fileHelper.listSelectableItemsInDir(dirUri) } returns listOf(
+            SelectedFileItem(
+                uri = folderUri,
+                name = "docs",
+                relativePath = "docs",
+                kind = FileSelectionKind.FOLDER,
+                files = listOf(
+                    SelectedFileLeaf(
+                        uri = mockk(),
+                        name = "a.txt",
+                        relativePath = "docs/spec/a.txt"
+                    )
+                )
+            )
+        )
+
+        viewModel.addFilesFromFolder(dirUri)
+
+        assertEquals(1, viewModel.uiState.value.files.size)
+        assertEquals(FileSelectionKind.FOLDER, viewModel.uiState.value.files.first().kind)
+        assertEquals("docs/spec/a.txt", viewModel.uiState.value.files.first().files.first().relativePath)
     }
 }
