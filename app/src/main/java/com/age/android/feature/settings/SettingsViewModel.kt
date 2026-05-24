@@ -66,6 +66,9 @@ class SettingsViewModel @Inject constructor(
     val themeAccent: StateFlow<ThemeAccent> = settingsDataStore.themeAccent
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ThemeAccent.LIQUID_DEFAULT)
 
+    val glassEffectEnabled: StateFlow<Boolean> = settingsDataStore.glassEffectEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     private val _updateState = MutableStateFlow(UpdateState())
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
 
@@ -169,6 +172,12 @@ class SettingsViewModel @Inject constructor(
     fun setThemeAccent(accent: ThemeAccent) {
         viewModelScope.launch {
             settingsDataStore.setThemeAccent(accent)
+        }
+    }
+
+    fun setGlassEffectEnabled(value: Boolean) {
+        viewModelScope.launch {
+            settingsDataStore.setGlassEffectEnabled(value)
         }
     }
 

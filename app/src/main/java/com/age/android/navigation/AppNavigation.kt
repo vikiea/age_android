@@ -48,7 +48,8 @@ enum class TopLevelRoute(val route: String, val label: String, val icon: ImageVe
 @Composable
 fun AppNavigation(
     sharedUris: List<Uri>? = null,
-    onSharedUrisConsumed: () -> Unit = {}
+    onSharedUrisConsumed: () -> Unit = {},
+    glassEffectEnabled: Boolean = true
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -71,7 +72,7 @@ fun AppNavigation(
         }
     }
 
-    GlassBackdropHost { backdrop ->
+    GlassBackdropHost(glassEffectEnabled = glassEffectEnabled) { backdrop ->
         Box(Modifier.fillMaxSize()) {
             NavHost(
                 navController = navController,

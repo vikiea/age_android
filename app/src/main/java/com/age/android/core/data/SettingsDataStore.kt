@@ -45,11 +45,11 @@ enum class ThemeAccent(
     LIQUID_SUNRISE("晨光", "Liquid Glass 橙粉", true),
     LIQUID_OCEAN("海洋", "Liquid Glass 蓝绿", true),
     LIQUID_GRAPE("葡萄", "Liquid Glass 紫红", true),
-    SOLID_GREEN("纯绿", "单色绿色", false),
-    SOLID_BLUE("纯蓝", "单色蓝色", false),
-    SOLID_RED("纯红", "单色红色", false),
-    SOLID_PURPLE("纯紫", "单色紫色", false),
-    SOLID_ORANGE("纯橙", "单色橙色", false);
+    SOLID_GREEN("绿色", "纯色外观: 白/黑底，绿色强调色", false),
+    SOLID_BLUE("蓝色", "纯色外观: 白/黑底，蓝色强调色", false),
+    SOLID_RED("红色", "纯色外观: 白/黑底，红色强调色", false),
+    SOLID_PURPLE("紫色", "纯色外观: 白/黑底，紫色强调色", false),
+    SOLID_ORANGE("橙色", "纯色外观: 白/黑底，橙色强调色", false);
 
     companion object {
         fun fromStoredName(value: String?): ThemeAccent =
@@ -72,6 +72,7 @@ class SettingsDataStore @Inject constructor(
     private val concurrencyKey = intPreferencesKey("concurrency")
     private val themeModeKey = stringPreferencesKey("theme_mode")
     private val themeAccentKey = stringPreferencesKey("theme_accent")
+    private val glassEffectEnabledKey = booleanPreferencesKey("glass_effect_enabled")
 
     @Volatile
     private var cachedOutputDirUri: String? = null
@@ -110,6 +111,10 @@ class SettingsDataStore @Inject constructor(
 
     val themeAccent: Flow<ThemeAccent> = context.dataStore.data.map { preferences ->
         ThemeAccent.fromStoredName(preferences[themeAccentKey])
+    }
+
+    val glassEffectEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[glassEffectEnabledKey] != false
     }
 
     suspend fun setOutputDirUri(uri: String?) {
@@ -229,6 +234,12 @@ class SettingsDataStore @Inject constructor(
     suspend fun setThemeAccent(accent: ThemeAccent) {
         context.dataStore.edit { preferences ->
             preferences[themeAccentKey] = accent.name
+        }
+    }
+
+    suspend fun setGlassEffectEnabled(value: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[glassEffectEnabledKey] = value
         }
     }
 }

@@ -38,10 +38,16 @@ class MainActivity : FragmentActivity() {
         setContent {
             val themeMode by settingsDataStore.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
             val themeAccent by settingsDataStore.themeAccent.collectAsState(initial = ThemeAccent.LIQUID_DEFAULT)
-            AgeAndroidTheme(themeMode = themeMode, themeAccent = themeAccent) {
+            val glassEffectEnabled by settingsDataStore.glassEffectEnabled.collectAsState(initial = true)
+            AgeAndroidTheme(
+                themeMode = themeMode,
+                themeAccent = themeAccent,
+                glassEffectEnabled = glassEffectEnabled
+            ) {
                 AppNavigation(
                     sharedUris = sharedUris.value,
-                    onSharedUrisConsumed = { sharedUris.value = null }
+                    onSharedUrisConsumed = { sharedUris.value = null },
+                    glassEffectEnabled = glassEffectEnabled
                 )
             }
         }

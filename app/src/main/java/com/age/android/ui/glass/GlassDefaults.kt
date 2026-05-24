@@ -12,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -21,6 +22,8 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import java.util.Locale
+
+val LocalGlassEffectEnabled = compositionLocalOf { true }
 
 object GlassDefaults {
     val ScreenPadding = 16.dp
@@ -63,6 +66,9 @@ object GlassDefaults {
     @Composable
     fun glassContainerColor(emphasis: GlassEmphasis = GlassEmphasis.Normal): Color {
         val dark = MaterialTheme.colorScheme.background.luminance() < 0.20f
+        if (!LocalGlassEffectEnabled.current) {
+            return if (dark) Color.Black else Color.White
+        }
         val alpha = if (dark) {
             when (emphasis) {
                 GlassEmphasis.Subtle -> 0.30f
@@ -86,6 +92,14 @@ object GlassDefaults {
 
     @Composable
     fun glassSheenBrush(emphasis: GlassEmphasis = GlassEmphasis.Normal): Brush {
+        if (!LocalGlassEffectEnabled.current) {
+            return Brush.verticalGradient(
+                colors = listOf(
+                    Color.Transparent,
+                    Color.Transparent
+                )
+            )
+        }
         val dark = MaterialTheme.colorScheme.background.luminance() < 0.20f
         val topAlpha = if (dark) {
             when (emphasis) {
@@ -116,6 +130,14 @@ object GlassDefaults {
 
     @Composable
     fun glassBorder(): BorderStroke {
+        if (!LocalGlassEffectEnabled.current) {
+            val color = if (MaterialTheme.colorScheme.background.luminance() < 0.20f) {
+                Color.White.copy(alpha = 0.14f)
+            } else {
+                Color.Black.copy(alpha = 0.08f)
+            }
+            return BorderStroke(1.dp, color)
+        }
         val color = if (MaterialTheme.colorScheme.background.luminance() < 0.20f) {
             Color.White.copy(alpha = 0.12f)
         } else {
@@ -126,7 +148,11 @@ object GlassDefaults {
 
     @Composable
     fun tonalCardColors() = CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.54f),
+        containerColor = if (LocalGlassEffectEnabled.current) {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.54f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainer
+        },
         contentColor = MaterialTheme.colorScheme.onSurface
     )
 }

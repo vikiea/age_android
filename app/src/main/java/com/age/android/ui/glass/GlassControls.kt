@@ -325,6 +325,13 @@ data class GlassSegmentOption<T>(
 @Composable
 private fun glassControlContainerColor(stronger: Boolean = false): Color {
     val dark = isGlassDarkTheme()
+    if (!LocalGlassEffectEnabled.current) {
+        return if (dark) {
+            if (stronger) Color(0xFF111111) else Color.Black
+        } else {
+            if (stronger) Color(0xFFF7F7F7) else Color.White
+        }
+    }
     val alpha = when {
         dark && stronger -> 0.28f
         dark -> 0.18f
@@ -341,6 +348,13 @@ private fun glassControlContainerColor(stronger: Boolean = false): Color {
 
 @Composable
 private fun glassControlBorderColor(): Color {
+    if (!LocalGlassEffectEnabled.current) {
+        return if (isGlassDarkTheme()) {
+            Color.White.copy(alpha = 0.14f)
+        } else {
+            Color.Black.copy(alpha = 0.08f)
+        }
+    }
     return if (isGlassDarkTheme()) {
         Color.White.copy(alpha = 0.09f)
     } else {

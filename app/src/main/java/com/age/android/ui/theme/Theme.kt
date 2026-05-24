@@ -80,6 +80,7 @@ private val LightColorScheme = lightColorScheme(
 fun AgeAndroidTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     themeAccent: ThemeAccent = ThemeAccent.LIQUID_DEFAULT,
+    glassEffectEnabled: Boolean = true,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
@@ -95,8 +96,8 @@ fun AgeAndroidTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> darkColorSchemeFor(themeAccent)
-        else -> lightColorSchemeFor(themeAccent)
+        darkTheme -> darkColorSchemeFor(themeAccent, glassEffectEnabled)
+        else -> lightColorSchemeFor(themeAccent, glassEffectEnabled)
     }
 
     MaterialTheme(
@@ -106,7 +107,7 @@ fun AgeAndroidTheme(
     )
 }
 
-private fun lightColorSchemeFor(accent: ThemeAccent) = LightColorScheme.copy(
+private fun lightColorSchemeFor(accent: ThemeAccent, glassEffectEnabled: Boolean) = LightColorScheme.copy(
     primary = accent.lightPrimary,
     primaryContainer = accent.lightPrimaryContainer,
     onPrimaryContainer = accent.lightOnPrimaryContainer,
@@ -114,13 +115,20 @@ private fun lightColorSchemeFor(accent: ThemeAccent) = LightColorScheme.copy(
     secondaryContainer = accent.lightSecondaryContainer,
     onSecondaryContainer = accent.lightOnSecondaryContainer,
     tertiary = accent.lightTertiary,
-    background = accent.lightBackground,
-    surface = accent.lightSurface,
+    background = if (glassEffectEnabled) accent.lightBackground else Color.White,
+    surface = if (glassEffectEnabled) accent.lightSurface else Color.White,
     surfaceVariant = accent.lightSurfaceVariant,
+    surfaceDim = if (glassEffectEnabled) accent.lightSurfaceVariant else Color(0xFFF7F7F7),
+    surfaceBright = Color.White,
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = if (glassEffectEnabled) accent.lightSurface else Color.White,
+    surfaceContainer = if (glassEffectEnabled) accent.lightSurface else Color.White,
+    surfaceContainerHigh = if (glassEffectEnabled) accent.lightSurfaceVariant else Color(0xFFFAFAFA),
+    surfaceContainerHighest = if (glassEffectEnabled) accent.lightSurfaceVariant else Color(0xFFF4F4F4),
     outline = accent.lightOutline
 )
 
-private fun darkColorSchemeFor(accent: ThemeAccent) = DarkColorScheme.copy(
+private fun darkColorSchemeFor(accent: ThemeAccent, glassEffectEnabled: Boolean) = DarkColorScheme.copy(
     primary = accent.darkPrimary,
     primaryContainer = accent.darkPrimaryContainer,
     onPrimaryContainer = accent.darkOnPrimaryContainer,
@@ -128,10 +136,16 @@ private fun darkColorSchemeFor(accent: ThemeAccent) = DarkColorScheme.copy(
     secondaryContainer = accent.darkSecondaryContainer,
     onSecondaryContainer = accent.darkOnSecondaryContainer,
     tertiary = accent.darkTertiary,
-    surfaceBright = accent.darkSurfaceBright,
-    surfaceContainer = accent.darkSurfaceContainer,
-    surfaceContainerHigh = accent.darkSurfaceContainerHigh,
-    surfaceContainerHighest = accent.darkSurfaceContainerHighest,
+    background = Color.Black,
+    surface = if (glassEffectEnabled) AgeBlackSurface else Color.Black,
+    surfaceVariant = if (glassEffectEnabled) AgeBlackSurfaceVariant else Color(0xFF101010),
+    surfaceDim = Color.Black,
+    surfaceBright = if (glassEffectEnabled) accent.darkSurfaceBright else Color(0xFF141414),
+    surfaceContainerLowest = Color.Black,
+    surfaceContainerLow = if (glassEffectEnabled) AgeBlackSurface else Color.Black,
+    surfaceContainer = if (glassEffectEnabled) accent.darkSurfaceContainer else Color.Black,
+    surfaceContainerHigh = if (glassEffectEnabled) accent.darkSurfaceContainerHigh else Color(0xFF0A0A0A),
+    surfaceContainerHighest = if (glassEffectEnabled) accent.darkSurfaceContainerHighest else Color(0xFF111111),
     inversePrimary = accent.lightPrimary
 )
 

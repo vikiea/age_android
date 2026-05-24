@@ -94,6 +94,7 @@ fun SettingsScreen(
     val concurrency by viewModel.concurrency.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
     val themeAccent by viewModel.themeAccent.collectAsState()
+    val glassEffectEnabled by viewModel.glassEffectEnabled.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
     val context = LocalContext.current
     var showDonationDialog by remember { mutableStateOf(false) }
@@ -146,6 +147,18 @@ fun SettingsScreen(
                     onAccentSelected = { viewModel.setThemeAccent(it) }
                 )
             }
+
+            ToggleSection(
+                backdrop = backdrop,
+                title = "半透明玻璃效果",
+                description = if (glassEffectEnabled) {
+                    "开启背景透光、模糊与高光层次"
+                } else {
+                    "关闭透光效果，浅色为纯白，深色为纯黑"
+                },
+                checked = glassEffectEnabled,
+                onCheckedChange = { viewModel.setGlassEffectEnabled(it) }
+            )
 
             SectionTitle("文件存储")
             SettingsSection(backdrop = backdrop, title = "保存位置") {
@@ -511,7 +524,7 @@ private fun ThemeAccentPalette(
             onAccentSelected = onAccentSelected
         )
         AccentGroup(
-            title = "纯色",
+            title = "纯色强调",
             accents = ThemeAccent.entries.filterNot { it.liquidGlass },
             selectedAccent = selectedAccent,
             onAccentSelected = onAccentSelected
