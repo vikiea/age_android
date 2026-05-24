@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 data class UpdateState(
@@ -34,6 +35,7 @@ data class UpdateState(
     val releaseInfo: ReleaseInfo? = null,
     val isDownloading: Boolean = false,
     val downloadId: Long? = null,
+    val downloadedApkPath: String? = null,
     val error: String? = null,
     val message: String? = null
 )
@@ -71,7 +73,7 @@ class SettingsViewModel @Inject constructor(
 
     fun checkForUpdate() {
         viewModelScope.launch {
-            _updateState.update { it.copy(isChecking = true, error = null, message = null) }
+            _updateState.update { it.copy(isChecking = true, error = null, message = null, downloadedApkPath = null) }
             updateChecker.checkForUpdate()
                 .onSuccess { release ->
                     _updateState.update {
@@ -93,7 +95,7 @@ class SettingsViewModel @Inject constructor(
     fun downloadUpdate() {
         val release = _updateState.value.releaseInfo ?: return
         val downloadId = updateChecker.downloadApk(release.apkUrl, release.versionName)
-        _updateState.update { it.copy(isDownloading = true, downloadId = downloadId) }
+        _updateState.update { it.copy(isDownloading = true, downloadId = downloadId, downloadedApkPath = null) }
         awaitDownloadResult(downloadId, release.versionName)
     }
 
@@ -102,16 +104,33 @@ class SettingsViewModel @Inject constructor(
             when (val result = updateChecker.awaitApkDownload(downloadId, versionName)) {
                 is ApkDownloadResult.Completed -> {
                     if (downloadId != _updateState.value.downloadId) return@launch
-                    _updateState.update { it.copy(isDownloading = false, error = null) }
+                    _updateState.update {
+                        it.copy(
+                            isDownloading = false,
+                            downloadedApkPath = result.apkFile.absolutePath,
+                            error = null
+                        )
+                    }
                     if (result.apkFile.exists()) {
                         updateChecker.installApk(result.apkFile)
                     }
                 }
                 is ApkDownloadResult.Failed -> {
                     if (downloadId != _updateState.value.downloadId) return@launch
-                    _updateState.update { it.copy(isDownloading = false, error = result.message) }
+                    _updateState.update {
+                        it.copy(isDownloading = false, downloadedApkPath = null, error = result.message)
+                    }
                 }
             }
+        }
+    }
+
+    fun installDownloadedUpdate() {
+        val apkFile = _updateState.value.downloadedApkPath?.let(::File) ?: return
+        if (apkFile.exists()) {
+            updateChecker.installApk(apkFile)
+        } else {
+            _updateState.update { it.copy(downloadedApkPath = null, error = "安装包文件不存在，请重新下载") }
         }
     }
 
@@ -120,7 +139,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun dismissUpdate() {
-        _updateState.update { it.copy(releaseInfo = null, error = null, message = null) }
+        _updateState.update { it.copy(releaseInfo = null, downloadedApkPath = null, error = null, message = null) }
     }
 
     fun setDuplicateStrategy(strategy: DuplicateStrategy) {

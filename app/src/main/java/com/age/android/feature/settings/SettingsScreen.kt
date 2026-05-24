@@ -242,6 +242,7 @@ fun SettingsScreen(
                 updateState = updateState,
                 onCheck = { viewModel.checkForUpdate() },
                 onDownload = { viewModel.downloadUpdate() },
+                onInstall = { viewModel.installDownloadedUpdate() },
                 onDismiss = { viewModel.dismissUpdate() }
             )
 
@@ -602,6 +603,7 @@ private fun UpdateSection(
     updateState: UpdateState,
     onCheck: () -> Unit,
     onDownload: () -> Unit,
+    onInstall: () -> Unit,
     onDismiss: () -> Unit
 ) {
     SettingsSection(backdrop = backdrop, title = "检查更新") {
@@ -639,7 +641,9 @@ private fun UpdateSection(
             ReleasePanel(
                 release = release,
                 isDownloading = updateState.isDownloading,
+                isDownloaded = updateState.downloadedApkPath != null,
                 onDownload = onDownload,
+                onInstall = onInstall,
                 onDismiss = onDismiss
             )
         }
@@ -658,7 +662,9 @@ private fun UpdateSection(
 private fun ReleasePanel(
     release: ReleaseInfo,
     isDownloading: Boolean,
+    isDownloaded: Boolean,
     onDownload: () -> Unit,
+    onInstall: () -> Unit,
     onDismiss: () -> Unit
 ) {
     GlassTonalSurface(modifier = Modifier.fillMaxWidth()) {
@@ -685,7 +691,7 @@ private fun ReleasePanel(
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassButton(
-                    onClick = onDownload,
+                    onClick = if (isDownloaded) onInstall else onDownload,
                     enabled = !isDownloading,
                     modifier = Modifier.weight(1f)
                 ) {
@@ -693,6 +699,10 @@ private fun ReleasePanel(
                         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(8.dp))
                         Text("下载中...")
+                    } else if (isDownloaded) {
+                        Icon(Icons.Default.Update, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("立即安装")
                     } else {
                         Icon(Icons.Default.Update, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))

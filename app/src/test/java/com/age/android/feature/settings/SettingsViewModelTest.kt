@@ -24,6 +24,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.test.resetMain
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -71,7 +72,7 @@ class SettingsViewModelTest {
             apkUrl = "https://example.com/app.apk",
             apkSize = 123L
         )
-        val apkFile = File("build/tmp/test-age-v2.2.0.apk")
+        val apkFile = File("build/tmp/test-age-v2.2.0.apk").absoluteFile
         apkFile.parentFile?.mkdirs()
         apkFile.writeText("apk")
         coEvery { updateChecker.checkForUpdate() } returns Result.success(release)
@@ -88,8 +89,37 @@ class SettingsViewModelTest {
         advanceUntilIdle()
 
         assertFalse(viewModel.updateState.value.isDownloading)
+        assertEquals(apkFile.absolutePath, viewModel.updateState.value.downloadedApkPath)
         coVerify { updateChecker.awaitApkDownload(42L, release.versionName) }
         coVerify { updateChecker.installApk(apkFile) }
+    }
+
+    @Test
+    fun `installDownloadedUpdate installs downloaded apk without starting another download`() = runTest(testDispatcher) {
+        val release = ReleaseInfo(
+            tagName = "v2.2.0",
+            versionName = "3.1.0",
+            body = "",
+            apkUrl = "https://example.com/app.apk",
+            apkSize = 123L
+        )
+        val apkFile = File("build/tmp/test-age-v3.1.0.apk").absoluteFile
+        apkFile.parentFile?.mkdirs()
+        apkFile.writeText("apk")
+        coEvery { updateChecker.checkForUpdate() } returns Result.success(release)
+        every { updateChecker.downloadApk(release.apkUrl, release.versionName) } returns 42L
+        coEvery { updateChecker.awaitApkDownload(42L, release.versionName) } returns ApkDownloadResult.Completed(apkFile)
+        every { updateChecker.installApk(apkFile) } just runs
+
+        viewModel.checkForUpdate()
+        advanceUntilIdle()
+        viewModel.downloadUpdate()
+        advanceUntilIdle()
+
+        viewModel.installDownloadedUpdate()
+
+        coVerify(exactly = 1) { updateChecker.downloadApk(release.apkUrl, release.versionName) }
+        coVerify(exactly = 2) { updateChecker.installApk(apkFile) }
     }
 
     @Test
