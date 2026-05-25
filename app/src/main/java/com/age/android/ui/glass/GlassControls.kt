@@ -71,14 +71,7 @@ fun GlassButton(
             disabledContainerColor = glassControlContainerColor().copy(alpha = if (dark) 0.40f else 0.48f),
             disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.52f)
         ),
-        border = BorderStroke(
-            1.dp,
-            if (dark) {
-                Color.White.copy(alpha = 0.16f)
-            } else {
-                Color.White.copy(alpha = 0.52f)
-            }
-        ),
+        border = null,
         elevation = ButtonDefaults.buttonElevation(
             defaultElevation = 0.dp,
             pressedElevation = 0.dp,
@@ -108,7 +101,7 @@ fun GlassOutlinedButton(
             disabledContainerColor = glassControlContainerColor().copy(alpha = 0.34f),
             disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.48f)
         ),
-        border = BorderStroke(1.dp, glassControlBorderColor()),
+        border = glassControlBorder(),
         content = content
     )
 }
@@ -271,7 +264,7 @@ fun <T> GlassSegmentedControl(
         modifier = modifier
             .clip(shape)
             .background(glassControlContainerColor(), shape)
-            .border(BorderStroke(1.dp, glassControlBorderColor()), shape)
+            .then(glassControlBorder()?.let { Modifier.border(it, shape) } ?: Modifier)
             .padding(4.dp)
             .selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -333,10 +326,10 @@ private fun glassControlContainerColor(stronger: Boolean = false): Color {
         }
     }
     val alpha = when {
-        dark && stronger -> 0.28f
-        dark -> 0.18f
-        stronger -> 0.40f
-        else -> 0.26f
+        dark && stronger -> 0.24f
+        dark -> 0.14f
+        stronger -> 0.44f
+        else -> 0.30f
     }
     val source = if (dark) {
         MaterialTheme.colorScheme.surfaceVariant
@@ -350,16 +343,24 @@ private fun glassControlContainerColor(stronger: Boolean = false): Color {
 private fun glassControlBorderColor(): Color {
     if (!LocalGlassEffectEnabled.current) {
         return if (isGlassDarkTheme()) {
-            Color.White.copy(alpha = 0.14f)
+            Color.White.copy(alpha = 0.08f)
         } else {
-            Color.Black.copy(alpha = 0.08f)
+            Color.Black.copy(alpha = 0.05f)
         }
     }
     return if (isGlassDarkTheme()) {
-        Color.White.copy(alpha = 0.09f)
+        Color.White.copy(alpha = 0.055f)
     } else {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+        Color.White.copy(alpha = 0.30f)
     }
+}
+
+@Composable
+private fun glassControlBorder(): BorderStroke? {
+    if (!LocalGlassEffectEnabled.current) {
+        return BorderStroke(1.dp, glassControlBorderColor())
+    }
+    return null
 }
 
 @Composable

@@ -287,7 +287,7 @@ fun SettingsScreen(
                         context.startActivity(
                             Intent(
                                 Intent.ACTION_VIEW,
-                                "https://vikiea.github.io/age_android/privacy-policy.html".toUri()
+                                "https://vikiea.github.io/age_android/privacy/".toUri()
                             )
                         )
                     }

@@ -60,7 +60,10 @@ data class EncryptUiState(
     val result: String? = null,
     val outputFiles: List<String> = emptyList(),
     val outputDir: String? = null
-)
+) {
+    val shouldShowActionFooter: Boolean
+        get() = files.isNotEmpty() || isProcessing || error != null || result != null
+}
 
 @HiltViewModel
 class EncryptViewModel @Inject constructor(

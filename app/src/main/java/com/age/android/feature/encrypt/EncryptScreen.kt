@@ -128,7 +128,7 @@ fun EncryptScreen(
                         GlassTonalSurface(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
-                                Text("已选项目 (${uiState.files.sumOf { it.files.size }} 个文件)", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                                    Text("已选项目 (${uiState.files.sumOf { it.files.size }} 个文件)", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
                                     GlassTextButton(onClick = { viewModel.clearFiles() }, enabled = !uiState.isProcessing) {
                                         Text("清空", style = MaterialTheme.typography.labelSmall)
                                     }
@@ -224,52 +224,60 @@ fun EncryptScreen(
             }
         }
 
-        GlassActionFooter(backdrop = backdrop) {
-            if (uiState.isProcessing) {
-                LinearProgressIndicator(progress = { uiState.progress }, modifier = Modifier.fillMaxWidth())
-                val statusText = if (uiState.phase.isNotEmpty()) {
-                    "${uiState.phase} ${uiState.processedCount}/${uiState.totalCount}"
-                } else {
-                    "处理中: ${uiState.processedCount}/${uiState.totalCount} (成功: ${uiState.successCount}, 失败: ${uiState.failCount})"
+        if (uiState.shouldShowActionFooter) {
+            GlassActionFooter(backdrop = backdrop) {
+                if (uiState.isProcessing) {
+                    LinearProgressIndicator(progress = { uiState.progress }, modifier = Modifier.fillMaxWidth())
+                    val statusText = if (uiState.phase.isNotEmpty()) {
+                        "${uiState.phase} ${uiState.processedCount}/${uiState.totalCount}"
+                    } else {
+                        "处理中: ${uiState.processedCount}/${uiState.totalCount} (成功: ${uiState.successCount}, 失败: ${uiState.failCount})"
+                    }
+                    Text(statusText)
                 }
-                Text(statusText)
-            }
 
-            uiState.result?.let {
-                GlassStatusPanel(
-                    title = "加密完成",
-                    tone = StatusTone.Success,
-                    onDismiss = { viewModel.clearResult() },
-                    actions = {
-                        GlassOutlinedButton(
-                            onClick = { viewModel.shareOutput() },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Icon(Icons.Default.Share, contentDescription = null)
-                            Spacer(Modifier.width(4.dp))
-                            Text("分享文件")
+                uiState.result?.let {
+                    GlassStatusPanel(
+                        title = "加密完成",
+                        tone = StatusTone.Success,
+                        onDismiss = { viewModel.clearResult() },
+                        actions = {
+                            GlassOutlinedButton(
+                                onClick = { viewModel.shareOutput() },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = null)
+                                Spacer(Modifier.width(4.dp))
+                                Text("分享文件")
+                            }
+                        }
+                    ) {
+                        Text(it)
+                        uiState.outputDir?.let { dir -> Text("目录: $dir", style = MaterialTheme.typography.bodySmall) }
+                        if (uiState.outputFiles.isNotEmpty()) {
+                            FilePathTreeView(paths = uiState.outputFiles)
                         }
                     }
-                ) {
-                    Text(it)
-                    uiState.outputDir?.let { dir -> Text("目录: $dir", style = MaterialTheme.typography.bodySmall) }
-                    if (uiState.outputFiles.isNotEmpty()) {
-                        FilePathTreeView(paths = uiState.outputFiles)
+                }
+
+                uiState.error?.let {
+                    GlassStatusPanel(
+                        title = "加密失败",
+                        tone = StatusTone.Error,
+                        onDismiss = { viewModel.clearError() }
+                    ) {
+                        Text(it)
                     }
                 }
-            }
 
-            uiState.error?.let {
-                GlassStatusPanel(
-                    title = "加密失败",
-                    tone = StatusTone.Error,
-                    onDismiss = { viewModel.clearError() }
+                GlassButton(
+                    onClick = { viewModel.startEncrypt() },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isProcessing && uiState.result == null
                 ) {
-                    Text(it)
+                    Text("开始加密")
                 }
             }
-
-            GlassButton(onClick = { viewModel.startEncrypt() }, modifier = Modifier.fillMaxWidth(), enabled = !uiState.isProcessing && uiState.result == null) { Text("开始加密") }
         }
     }
 }

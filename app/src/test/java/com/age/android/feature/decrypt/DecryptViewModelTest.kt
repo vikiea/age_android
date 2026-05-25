@@ -63,6 +63,21 @@ class DecryptViewModelTest {
     }
 
     @Test
+    fun `idle empty state hides action footer`() {
+        assertFalse(viewModel.uiState.value.shouldShowActionFooter)
+    }
+
+    @Test
+    fun `selected files show action footer`() {
+        val uri = mockk<android.net.Uri>()
+        every { fileHelper.getFileName(uri) } returns "docs.tar.age"
+
+        viewModel.addFiles(listOf(uri))
+
+        assertTrue(viewModel.uiState.value.shouldShowActionFooter)
+    }
+
+    @Test
     fun `startDecrypt with no files shows error`() {
         viewModel.startDecrypt()
         assertEquals("请先选择文件", viewModel.uiState.value.error)

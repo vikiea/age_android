@@ -55,7 +55,7 @@ fun GlassSurface(
     val surfaceColor = GlassDefaults.glassContainerColor(emphasis)
     val sheenBrush = GlassDefaults.glassSheenBrush(emphasis)
     val contentColor = GlassDefaults.glassContentColor()
-    val border = GlassDefaults.glassBorder()
+    val border = GlassDefaults.glassBorder(emphasis)
     val glassEffectEnabled = LocalGlassEffectEnabled.current
     val shouldUseBackdrop = glassEffectEnabled && useRealBackdrop && backdrop != null && GlassDefaults.realBackdropEnabled
 
@@ -82,7 +82,7 @@ fun GlassSurface(
                     onDrawSurface = drawSurface
                 )
                 .clip(shape)
-                .border(border, shape),
+                .then(if (border != null) Modifier.border(border, shape) else Modifier),
         ) {
             CompositionLocalProvider(LocalContentColor provides contentColor) {
                 content()
@@ -94,7 +94,7 @@ fun GlassSurface(
                 .background(surfaceColor, shape)
                 .clip(shape)
                 .then(if (glassEffectEnabled) Modifier.glassSheen(sheenBrush) else Modifier)
-                .border(border, shape),
+                .then(if (border != null) Modifier.border(border, shape) else Modifier),
         ) {
             CompositionLocalProvider(LocalContentColor provides contentColor) {
                 content()
@@ -108,7 +108,7 @@ fun GlassTonalSurface(
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(14.dp),
     containerColor: Color = GlassDefaults.glassContainerColor(GlassEmphasis.Subtle),
-    border: BorderStroke? = GlassDefaults.glassBorder(),
+    border: BorderStroke? = GlassDefaults.glassBorder(GlassEmphasis.Subtle),
     content: @Composable BoxScope.() -> Unit
 ) {
     val contentColor = GlassDefaults.glassContentColor()

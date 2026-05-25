@@ -67,6 +67,21 @@ class EncryptViewModelTest {
     }
 
     @Test
+    fun `idle empty state hides action footer`() {
+        assertFalse(viewModel.uiState.value.shouldShowActionFooter)
+    }
+
+    @Test
+    fun `selected files show action footer`() {
+        val uri = mockk<android.net.Uri>()
+        every { fileHelper.getFileName(uri) } returns "plain.txt"
+
+        viewModel.addFiles(listOf(uri))
+
+        assertTrue(viewModel.uiState.value.shouldShowActionFooter)
+    }
+
+    @Test
     fun `setMode updates mode`() {
         viewModel.setMode(EncryptMode.SEPARATE)
         assertEquals(EncryptMode.SEPARATE, viewModel.uiState.value.mode)

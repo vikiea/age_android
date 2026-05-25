@@ -30,7 +30,7 @@ object GlassDefaults {
     val SectionSpacing = 14.dp
     val PanelShape @Composable get() = MaterialTheme.shapes.large
     val CompactShape @Composable get() = MaterialTheme.shapes.medium
-    val NavShape @Composable get() = MaterialTheme.shapes.extraLarge
+    val NavShape @Composable get() = MaterialTheme.shapes.large
 
     val supportsBackdrop: Boolean
         get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -71,15 +71,15 @@ object GlassDefaults {
         }
         val alpha = if (dark) {
             when (emphasis) {
-                GlassEmphasis.Subtle -> 0.30f
-                GlassEmphasis.Normal -> 0.40f
-                GlassEmphasis.Strong -> 0.50f
+                GlassEmphasis.Subtle -> 0.22f
+                GlassEmphasis.Normal -> 0.32f
+                GlassEmphasis.Strong -> 0.44f
             }
         } else {
             when (emphasis) {
-                GlassEmphasis.Subtle -> 0.30f
-                GlassEmphasis.Normal -> 0.46f
-                GlassEmphasis.Strong -> 0.62f
+                GlassEmphasis.Subtle -> 0.34f
+                GlassEmphasis.Normal -> 0.54f
+                GlassEmphasis.Strong -> 0.70f
             }
         }
         val source = if (dark) {
@@ -103,18 +103,18 @@ object GlassDefaults {
         val dark = MaterialTheme.colorScheme.background.luminance() < 0.20f
         val topAlpha = if (dark) {
             when (emphasis) {
-                GlassEmphasis.Subtle -> 0.070f
-                GlassEmphasis.Normal -> 0.105f
-                GlassEmphasis.Strong -> 0.135f
+                GlassEmphasis.Subtle -> 0.050f
+                GlassEmphasis.Normal -> 0.085f
+                GlassEmphasis.Strong -> 0.120f
             }
         } else {
             when (emphasis) {
-                GlassEmphasis.Subtle -> 0.28f
-                GlassEmphasis.Normal -> 0.36f
-                GlassEmphasis.Strong -> 0.44f
+                GlassEmphasis.Subtle -> 0.30f
+                GlassEmphasis.Normal -> 0.42f
+                GlassEmphasis.Strong -> 0.50f
             }
         }
-        val accentAlpha = if (dark) 0.075f else 0.10f
+        val accentAlpha = if (dark) 0.055f else 0.070f
         return Brush.verticalGradient(
             colors = listOf(
                 Color.White.copy(alpha = topAlpha),
@@ -129,19 +129,20 @@ object GlassDefaults {
     fun glassContentColor(): Color = MaterialTheme.colorScheme.onSurface
 
     @Composable
-    fun glassBorder(): BorderStroke {
+    fun glassBorder(emphasis: GlassEmphasis = GlassEmphasis.Normal): BorderStroke? {
         if (!LocalGlassEffectEnabled.current) {
             val color = if (MaterialTheme.colorScheme.background.luminance() < 0.20f) {
-                Color.White.copy(alpha = 0.14f)
+                Color.White.copy(alpha = 0.08f)
             } else {
-                Color.Black.copy(alpha = 0.08f)
+                Color.Black.copy(alpha = 0.05f)
             }
             return BorderStroke(1.dp, color)
         }
+        if (emphasis == GlassEmphasis.Subtle) return null
         val color = if (MaterialTheme.colorScheme.background.luminance() < 0.20f) {
-            Color.White.copy(alpha = 0.12f)
+            Color.White.copy(alpha = if (emphasis == GlassEmphasis.Strong) 0.10f else 0.07f)
         } else {
-            Color.White.copy(alpha = 0.72f)
+            Color.White.copy(alpha = if (emphasis == GlassEmphasis.Strong) 0.38f else 0.26f)
         }
         return BorderStroke(1.dp, color)
     }
@@ -182,7 +183,7 @@ fun GlassFallbackSurface(
         shape = shape,
         color = GlassDefaults.glassContainerColor(emphasis),
         contentColor = GlassDefaults.glassContentColor(),
-        border = GlassDefaults.glassBorder(),
+        border = GlassDefaults.glassBorder(emphasis),
         tonalElevation = tonalElevation,
         content = content
     )

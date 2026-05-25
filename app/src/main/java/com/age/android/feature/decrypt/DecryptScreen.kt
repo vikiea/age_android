@@ -203,49 +203,57 @@ fun DecryptScreen(
             }
         }
 
-        GlassActionFooter(backdrop = backdrop) {
-            if (uiState.isProcessing) {
-                LinearProgressIndicator(progress = { uiState.progress }, modifier = Modifier.fillMaxWidth())
-                Text("处理中: ${uiState.processedCount}/${uiState.totalCount}")
-            }
+        if (uiState.shouldShowActionFooter) {
+            GlassActionFooter(backdrop = backdrop) {
+                if (uiState.isProcessing) {
+                    LinearProgressIndicator(progress = { uiState.progress }, modifier = Modifier.fillMaxWidth())
+                    Text("处理中: ${uiState.processedCount}/${uiState.totalCount}")
+                }
 
-            uiState.result?.let {
-                GlassStatusPanel(
-                    title = "解密完成",
-                    tone = StatusTone.Success,
-                    onDismiss = { viewModel.clearResult() },
-                    actions = {
-                        if (uiState.successCount > 0) {
-                            GlassOutlinedButton(
-                                onClick = { viewModel.shareOutput() },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(Icons.Default.Share, contentDescription = null)
-                                Spacer(Modifier.width(4.dp))
-                                Text("分享文件")
+                uiState.result?.let {
+                    GlassStatusPanel(
+                        title = "解密完成",
+                        tone = StatusTone.Success,
+                        onDismiss = { viewModel.clearResult() },
+                        actions = {
+                            if (uiState.successCount > 0) {
+                                GlassOutlinedButton(
+                                    onClick = { viewModel.shareOutput() },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(Icons.Default.Share, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("分享文件")
+                                }
                             }
                         }
-                    }
-                ) {
-                    Text(it)
-                    uiState.outputDir?.let { dir -> Text("目录: $dir", style = MaterialTheme.typography.bodySmall) }
-                    if (uiState.outputFiles.isNotEmpty()) {
-                        FilePathTreeView(paths = uiState.outputFiles)
+                    ) {
+                        Text(it)
+                        uiState.outputDir?.let { dir -> Text("目录: $dir", style = MaterialTheme.typography.bodySmall) }
+                        if (uiState.outputFiles.isNotEmpty()) {
+                            FilePathTreeView(paths = uiState.outputFiles)
+                        }
                     }
                 }
-            }
 
-            uiState.error?.let {
-                GlassStatusPanel(
-                    title = "解密失败",
-                    tone = StatusTone.Error,
-                    onDismiss = { viewModel.clearError() }
+                uiState.error?.let {
+                    GlassStatusPanel(
+                        title = "解密失败",
+                        tone = StatusTone.Error,
+                        onDismiss = { viewModel.clearError() }
+                    ) {
+                        Text(it)
+                    }
+                }
+
+                GlassButton(
+                    onClick = { viewModel.startDecrypt() },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isProcessing && uiState.result == null
                 ) {
-                    Text(it)
+                    Text("开始解密")
                 }
             }
-
-            GlassButton(onClick = { viewModel.startDecrypt() }, modifier = Modifier.fillMaxWidth(), enabled = !uiState.isProcessing && uiState.result == null) { Text("开始解密") }
         }
     }
 }

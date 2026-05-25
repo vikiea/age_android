@@ -78,24 +78,16 @@ fun HistoryScreen(
                 .padding(bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            GlassSurface(
-                modifier = Modifier.fillMaxWidth(),
-                backdrop = backdrop,
-                emphasis = GlassEmphasis.Subtle
-            ) {
-                GlassSegmentedControl(
-                    options = listOf(
-                        GlassSegmentOption<OperationType?>(null, "全部"),
-                        GlassSegmentOption(OperationType.ENCRYPT, "加密"),
-                        GlassSegmentOption(OperationType.DECRYPT, "解密")
-                    ),
-                    selectedValue = uiState.filterType,
-                    onSelected = { viewModel.setFilter(it) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp)
-                )
-            }
+            GlassSegmentedControl(
+                options = listOf(
+                    GlassSegmentOption<OperationType?>(null, "全部"),
+                    GlassSegmentOption(OperationType.ENCRYPT, "加密"),
+                    GlassSegmentOption(OperationType.DECRYPT, "解密")
+                ),
+                selectedValue = uiState.filterType,
+                onSelected = { viewModel.setFilter(it) },
+                modifier = Modifier.fillMaxWidth()
+            )
 
             GlassSurface(
                 modifier = Modifier

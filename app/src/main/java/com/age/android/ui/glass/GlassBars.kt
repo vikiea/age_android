@@ -46,34 +46,25 @@ fun GlassTopBar(
     navigationIcon: @Composable (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
-    GlassSurface(
+    Row(
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        backdrop = backdrop,
-        shape = GlassDefaults.NavShape,
-        emphasis = GlassEmphasis.Normal
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .heightIn(min = 52.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        navigationIcon?.invoke()
+        Text(
+            text = title,
             modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 52.dp)
+                .weight(1f)
                 .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            navigationIcon?.invoke()
-            Text(
-                text = title,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 8.dp),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1
-            )
-            actions()
-        }
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1
+        )
+        actions()
     }
 }
 
