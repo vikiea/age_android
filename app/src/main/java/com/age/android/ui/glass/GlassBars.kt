@@ -46,6 +46,7 @@ fun GlassTopBar(
     navigationIcon: @Composable (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
+    val contentColor = MaterialTheme.colorScheme.onBackground
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -54,17 +55,20 @@ fun GlassTopBar(
             .heightIn(min = 52.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        navigationIcon?.invoke()
-        Text(
-            text = title,
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 8.dp),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1
-        )
-        actions()
+        CompositionLocalProvider(LocalContentColor provides contentColor) {
+            navigationIcon?.invoke()
+            Text(
+                text = title,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = contentColor,
+                maxLines = 1
+            )
+            actions()
+        }
     }
 }
 

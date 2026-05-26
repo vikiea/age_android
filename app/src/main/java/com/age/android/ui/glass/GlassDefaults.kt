@@ -61,9 +61,9 @@ object GlassDefaults {
     }
 
     fun shadowElevation(emphasis: GlassEmphasis): Dp = when (emphasis) {
-        GlassEmphasis.Subtle -> 6.dp
-        GlassEmphasis.Normal -> 14.dp
-        GlassEmphasis.Strong -> 24.dp
+        GlassEmphasis.Subtle -> 8.dp
+        GlassEmphasis.Normal -> 18.dp
+        GlassEmphasis.Strong -> 30.dp
     }
 
     fun useLens(emphasis: GlassEmphasis): Boolean =
@@ -72,26 +72,44 @@ object GlassDefaults {
     @Composable
     fun glassContainerColor(emphasis: GlassEmphasis = GlassEmphasis.Normal): Color {
         val dark = MaterialTheme.colorScheme.background.luminance() < 0.20f
+        return if (dark) {
+            when (emphasis) {
+                GlassEmphasis.Subtle -> Color(0xFF0B0B0B)
+                GlassEmphasis.Normal -> Color(0xFF121212)
+                GlassEmphasis.Strong -> Color(0xFF1A1A1A)
+            }
+        } else {
+            when (emphasis) {
+                GlassEmphasis.Subtle -> Color.White
+                GlassEmphasis.Normal -> Color.White
+                GlassEmphasis.Strong -> Color.White
+            }
+        }
+    }
+
+    @Composable
+    fun glassBackdropTint(emphasis: GlassEmphasis = GlassEmphasis.Normal): Color {
+        val dark = MaterialTheme.colorScheme.background.luminance() < 0.20f
         if (!LocalGlassEffectEnabled.current) {
-            return if (dark) Color.Black else Color.White
+            return glassContainerColor(emphasis)
         }
         val alpha = if (dark) {
             when (emphasis) {
-                GlassEmphasis.Subtle -> 0.38f
-                GlassEmphasis.Normal -> 0.52f
-                GlassEmphasis.Strong -> 0.66f
+                GlassEmphasis.Subtle -> 0.46f
+                GlassEmphasis.Normal -> 0.62f
+                GlassEmphasis.Strong -> 0.76f
             }
         } else {
             when (emphasis) {
-                GlassEmphasis.Subtle -> 0.54f
-                GlassEmphasis.Normal -> 0.74f
-                GlassEmphasis.Strong -> 0.88f
+                GlassEmphasis.Subtle -> 0.62f
+                GlassEmphasis.Normal -> 0.82f
+                GlassEmphasis.Strong -> 0.93f
             }
         }
         val source = if (dark) {
-            MaterialTheme.colorScheme.surfaceVariant
+            Color(0xFF1A1A1A)
         } else {
-            MaterialTheme.colorScheme.surface
+            Color.White
         }
         return source.copy(alpha = alpha)
     }
@@ -120,15 +138,40 @@ object GlassDefaults {
                 GlassEmphasis.Strong -> 0.62f
             }
         }
-        val accentAlpha = if (dark) 0.090f else 0.120f
         return Brush.verticalGradient(
             colors = listOf(
                 Color.White.copy(alpha = topAlpha),
                 Color.White.copy(alpha = topAlpha * 0.26f),
                 Color.Transparent,
-                MaterialTheme.colorScheme.primary.copy(alpha = accentAlpha)
+                Color.Black.copy(alpha = if (dark) 0.18f else 0.06f)
             )
         )
+    }
+
+    @Composable
+    fun glassShadowAmbientColor(emphasis: GlassEmphasis): Color {
+        val dark = MaterialTheme.colorScheme.background.luminance() < 0.20f
+        val alpha = when (emphasis) {
+            GlassEmphasis.Subtle -> if (dark) 0.06f else 0.16f
+            GlassEmphasis.Normal -> if (dark) 0.09f else 0.20f
+            GlassEmphasis.Strong -> if (dark) 0.12f else 0.26f
+        }
+        return if (dark) {
+            Color.White.copy(alpha = alpha)
+        } else {
+            Color.Black.copy(alpha = alpha)
+        }
+    }
+
+    @Composable
+    fun glassShadowSpotColor(emphasis: GlassEmphasis): Color {
+        val dark = MaterialTheme.colorScheme.background.luminance() < 0.20f
+        val alpha = when (emphasis) {
+            GlassEmphasis.Subtle -> if (dark) 0.30f else 0.20f
+            GlassEmphasis.Normal -> if (dark) 0.42f else 0.28f
+            GlassEmphasis.Strong -> if (dark) 0.54f else 0.36f
+        }
+        return Color.Black.copy(alpha = alpha)
     }
 
     @Composable
@@ -155,11 +198,7 @@ object GlassDefaults {
 
     @Composable
     fun tonalCardColors() = CardDefaults.cardColors(
-        containerColor = if (LocalGlassEffectEnabled.current) {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.54f)
-        } else {
-            MaterialTheme.colorScheme.surfaceContainer
-        },
+        containerColor = glassContainerColor(GlassEmphasis.Subtle),
         contentColor = MaterialTheme.colorScheme.onSurface
     )
 }
@@ -183,8 +222,8 @@ fun GlassFallbackSurface(
         modifier = modifier.shadow(
             elevation = GlassDefaults.shadowElevation(emphasis),
             shape = shape,
-            ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-            spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+            ambientColor = GlassDefaults.glassShadowAmbientColor(emphasis),
+            spotColor = GlassDefaults.glassShadowSpotColor(emphasis)
         ),
         shape = shape,
         color = GlassDefaults.glassContainerColor(emphasis),

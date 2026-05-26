@@ -111,13 +111,13 @@ app (Compose + Material3 + Hilt + Room + DataStore)
 - 解密：优先按 tar / tar.gz 归档恢复；归档内目录会恢复为文件树，非归档 `.age` 会按单文件输出。
 - 输出位置：默认进入应用外部文件目录下的 `encrypted/` / `decrypted/`，也可通过 SAF 选择自定义目录。
 
-### v3.0.3 能力边界
+### v3.1.0 能力边界
 
 - `MainActivity` 接收 `ACTION_SEND` / `ACTION_SEND_MULTIPLE`，根据文件扩展名路由到加密或解密流程。
 - 加密/解密选择文件夹时，根目录下的每个子文件夹作为独立选择单位，可单独移除；展示和结果面板均使用文件树视图。分别加密模式会将选中的子文件夹先打成一个 tar，再加密为独立 `.tar.age` 输出。
 - `FileHelper` 递归读取 SAF 目录，并在本地输出目录或自定义 SAF 输出目录中创建嵌套子目录。
 - `SettingsScreen` 管理主题、主题颜色、半透明玻璃效果、保存位置、重名策略、压缩开关、并发数、更新检查和自愿支持入口。
-- `ui/glass/` 提供 Liquid Glass 风格的 Compose 组件；关闭半透明玻璃效果后，浅色外观使用纯白底，深色外观使用纯黑底。
+- `ui/glass/` 提供 Liquid Glass 风格的 Compose 组件；全局背景在浅色外观使用冷蓝灰、深色外观保持纯黑，卡片通过白色或深灰层级形成景深。
 - `EncryptViewModel` / `DecryptViewModel` 使用协程、`Semaphore` 和 DataStore 并发设置控制多文件处理。
 - `UpdateChecker` 通过 GitHub Release API 检查更新，并使用 DownloadManager 下载 APK；下载完成后可从更新卡片再次触发安装。
 - 私钥详情页集成 AndroidX Biometric，用于在展示私钥前做本机认证。
@@ -228,7 +228,7 @@ unzip -l age-engine/libs/age-engine.aar
 
 | 配置项 | 值 |
 |--------|-----|
-| app version | 3.0.3 (`versionCode` 11) |
+| app version | 3.1.0 (`versionCode` 12) |
 | compileSdk | 36 |
 | minSdk | 26 |
 | targetSdk | 36 |

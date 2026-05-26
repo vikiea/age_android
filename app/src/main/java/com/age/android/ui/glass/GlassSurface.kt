@@ -54,16 +54,20 @@ fun GlassSurface(
     content: @Composable BoxScope.() -> Unit
 ) {
     val surfaceColor = GlassDefaults.glassContainerColor(emphasis)
+    val backdropTint = GlassDefaults.glassBackdropTint(emphasis)
     val sheenBrush = GlassDefaults.glassSheenBrush(emphasis)
     val contentColor = GlassDefaults.glassContentColor()
     val border = GlassDefaults.glassBorder(emphasis)
     val glassEffectEnabled = LocalGlassEffectEnabled.current
     val shouldUseBackdrop = glassEffectEnabled && useRealBackdrop && backdrop != null && GlassDefaults.realBackdropEnabled
     val shadowElevation = GlassDefaults.shadowElevation(emphasis)
+    val shadowAmbientColor = GlassDefaults.glassShadowAmbientColor(emphasis)
+    val shadowSpotColor = GlassDefaults.glassShadowSpotColor(emphasis)
 
     if (shouldUseBackdrop) {
-        val drawSurface: DrawScope.() -> Unit = remember(surfaceColor, sheenBrush) {
+        val drawSurface: DrawScope.() -> Unit = remember(backdropTint, surfaceColor, sheenBrush) {
             {
+                drawRect(backdropTint)
                 drawRect(surfaceColor)
                 drawRect(sheenBrush)
             }
@@ -83,14 +87,14 @@ fun GlassSurface(
                     shadow = {
                         Shadow.Default.copy(
                             radius = when (emphasis) {
-                                GlassEmphasis.Subtle -> 16.dp
-                                GlassEmphasis.Normal -> 28.dp
-                                GlassEmphasis.Strong -> 40.dp
+                                GlassEmphasis.Subtle -> 22.dp
+                                GlassEmphasis.Normal -> 36.dp
+                                GlassEmphasis.Strong -> 52.dp
                             },
                             alpha = when (emphasis) {
-                                GlassEmphasis.Subtle -> 0.36f
-                                GlassEmphasis.Normal -> 0.58f
-                                GlassEmphasis.Strong -> 0.72f
+                                GlassEmphasis.Subtle -> 0.44f
+                                GlassEmphasis.Normal -> 0.68f
+                                GlassEmphasis.Strong -> 0.82f
                             }
                         )
                     },
@@ -109,8 +113,8 @@ fun GlassSurface(
                 .shadow(
                     elevation = shadowElevation,
                     shape = shape,
-                    ambientColor = Color.Black.copy(alpha = 0.20f),
-                    spotColor = Color.Black.copy(alpha = 0.30f)
+                    ambientColor = shadowAmbientColor,
+                    spotColor = shadowSpotColor
                 )
                 .background(surfaceColor, shape)
                 .clip(shape)
@@ -136,10 +140,10 @@ fun GlassTonalSurface(
     val sheenBrush = GlassDefaults.glassSheenBrush(GlassEmphasis.Subtle)
     val glassEffectEnabled = LocalGlassEffectEnabled.current
     val shadowModifier = modifier.shadow(
-        elevation = if (glassEffectEnabled) 6.dp else 0.dp,
+        elevation = if (glassEffectEnabled) 10.dp else 0.dp,
         shape = shape,
-        ambientColor = Color.Black.copy(alpha = 0.14f),
-        spotColor = Color.Black.copy(alpha = 0.20f)
+        ambientColor = GlassDefaults.glassShadowAmbientColor(GlassEmphasis.Subtle),
+        spotColor = GlassDefaults.glassShadowSpotColor(GlassEmphasis.Subtle)
     )
     val surfaceModifier = if (border != null) {
         shadowModifier

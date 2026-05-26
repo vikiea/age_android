@@ -357,18 +357,11 @@ private fun glassControlContainerColor(stronger: Boolean = false): Color {
             if (stronger) Color(0xFFF7F7F7) else Color.White
         }
     }
-    val alpha = when {
-        dark && stronger -> 0.36f
-        dark -> 0.24f
-        stronger -> 0.58f
-        else -> 0.42f
-    }
-    val source = if (dark) {
-        MaterialTheme.colorScheme.surfaceVariant
+    return if (dark) {
+        if (stronger) Color(0xFF0F0F0F) else Color(0xFF151515)
     } else {
-        MaterialTheme.colorScheme.surface
+        if (stronger) Color(0xFFFAFBFC) else Color.White
     }
-    return source.copy(alpha = alpha)
 }
 
 @Composable

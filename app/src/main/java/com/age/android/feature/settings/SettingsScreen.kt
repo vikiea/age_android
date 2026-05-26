@@ -156,9 +156,9 @@ fun SettingsScreen(
                 backdrop = backdrop,
                 title = "半透明玻璃效果",
                 description = if (glassEffectEnabled) {
-                    "开启背景透光、模糊与高光层次"
+                    "开启卡片透光、模糊与高光层次，浅色背景使用冷蓝灰"
                 } else {
-                    "关闭透光效果，浅色为纯白，深色为纯黑"
+                    "关闭卡片透光效果，浅色背景使用冷蓝灰，深色背景保持纯黑"
                 },
                 checked = glassEffectEnabled,
                 onCheckedChange = { viewModel.setGlassEffectEnabled(it) }

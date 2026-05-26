@@ -13,9 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 
 @Composable
 fun GlassBackdropHost(
@@ -31,7 +29,7 @@ fun GlassBackdropHost(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(glassBackgroundBrush(glassEffectEnabled))
+                .background(glassBackgroundColor())
                 .then(
                     if (glassEffectEnabled) {
                         Modifier.glassBackdropLayer(backdrop)
@@ -47,30 +45,6 @@ fun GlassBackdropHost(
 }
 
 @Composable
-private fun glassBackgroundBrush(glassEffectEnabled: Boolean): Brush {
-    val scheme = MaterialTheme.colorScheme
-    if (scheme.background.luminance() < 0.20f) {
-        return Brush.verticalGradient(
-            colors = listOf(
-                Color.Black,
-                Color.Black
-            )
-        )
-    }
-    if (!glassEffectEnabled) {
-        return Brush.verticalGradient(
-            colors = listOf(
-                Color.White,
-                Color.White
-            )
-        )
-    }
-    return Brush.verticalGradient(
-        colors = listOf(
-            scheme.background,
-            scheme.primaryContainer.copy(alpha = 0.60f),
-            scheme.secondaryContainer.copy(alpha = 0.46f),
-            Color.Black.copy(alpha = 0.08f)
-        )
-    )
+private fun glassBackgroundColor(): Color {
+    return MaterialTheme.colorScheme.background
 }
