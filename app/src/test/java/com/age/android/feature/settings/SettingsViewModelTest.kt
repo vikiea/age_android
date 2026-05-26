@@ -55,6 +55,7 @@ class SettingsViewModelTest {
         val fileHelper = mockk<FileHelper>()
         updateChecker = mockk {
             every { getCurrentVersion() } returns "3.0.0"
+            every { canInstallDownloadedApks() } returns true
         }
         val context = mockk<Context>(relaxed = true)
         viewModel = SettingsViewModel(settingsDataStore, fileHelper, updateChecker, context)
@@ -122,6 +123,69 @@ class SettingsViewModelTest {
 
         coVerify(exactly = 1) { updateChecker.downloadApk(release.apkUrl, release.versionName) }
         coVerify(exactly = 2) { updateChecker.installApk(apkFile) }
+    }
+
+    @Test
+    fun `downloadUpdate asks for install permission when apk installs are blocked`() = runTest(testDispatcher) {
+        val release = ReleaseInfo(
+            tagName = "v2.2.0",
+            versionName = "3.1.0",
+            body = "",
+            apkUrl = "https://example.com/app.apk",
+            apkSize = 123L
+        )
+        val apkFile = File("build/tmp/test-age-v3.1.0-permission.apk").absoluteFile
+        apkFile.parentFile?.mkdirs()
+        apkFile.writeText("apk")
+        coEvery { updateChecker.checkForUpdate() } returns Result.success(release)
+        every { updateChecker.downloadApk(release.apkUrl, release.versionName) } returns 42L
+        coEvery { updateChecker.awaitApkDownload(42L, release.versionName) } returns ApkDownloadResult.Completed(apkFile)
+        every { updateChecker.canInstallDownloadedApks() } returns false
+        every { updateChecker.installApk(apkFile) } just runs
+
+        viewModel.checkForUpdate()
+        advanceUntilIdle()
+        viewModel.downloadUpdate()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.updateState.value.isDownloading)
+        assertEquals(apkFile.absolutePath, viewModel.updateState.value.downloadedApkPath)
+        assertTrue(viewModel.updateState.value.requiresInstallPermission)
+        coVerify(exactly = 0) { updateChecker.installApk(apkFile) }
+    }
+
+    @Test
+    fun `install permission result retries installing downloaded apk`() = runTest(testDispatcher) {
+        val release = ReleaseInfo(
+            tagName = "v2.2.0",
+            versionName = "3.1.0",
+            body = "",
+            apkUrl = "https://example.com/app.apk",
+            apkSize = 123L
+        )
+        val apkFile = File("build/tmp/test-age-v3.1.0-retry.apk").absoluteFile
+        apkFile.parentFile?.mkdirs()
+        apkFile.writeText("apk")
+        var canInstall = false
+        coEvery { updateChecker.checkForUpdate() } returns Result.success(release)
+        every { updateChecker.downloadApk(release.apkUrl, release.versionName) } returns 42L
+        coEvery { updateChecker.awaitApkDownload(42L, release.versionName) } returns ApkDownloadResult.Completed(apkFile)
+        every { updateChecker.canInstallDownloadedApks() } answers { canInstall }
+        every { updateChecker.openInstallPermissionSettings() } just runs
+        every { updateChecker.installApk(apkFile) } just runs
+
+        viewModel.checkForUpdate()
+        advanceUntilIdle()
+        viewModel.downloadUpdate()
+        advanceUntilIdle()
+
+        viewModel.requestInstallPermission()
+        canInstall = true
+        viewModel.onInstallPermissionResult()
+
+        assertFalse(viewModel.updateState.value.requiresInstallPermission)
+        coVerify { updateChecker.openInstallPermissionSettings() }
+        coVerify(exactly = 1) { updateChecker.installApk(apkFile) }
     }
 
     @Test

@@ -36,6 +36,7 @@ data class UpdateState(
     val isDownloading: Boolean = false,
     val downloadId: Long? = null,
     val downloadedApkPath: String? = null,
+    val requiresInstallPermission: Boolean = false,
     val error: String? = null,
     val message: String? = null
 )
@@ -76,7 +77,15 @@ class SettingsViewModel @Inject constructor(
 
     fun checkForUpdate() {
         viewModelScope.launch {
-            _updateState.update { it.copy(isChecking = true, error = null, message = null, downloadedApkPath = null) }
+            _updateState.update {
+                it.copy(
+                    isChecking = true,
+                    error = null,
+                    message = null,
+                    downloadedApkPath = null,
+                    requiresInstallPermission = false
+                )
+            }
             updateChecker.checkForUpdate()
                 .onSuccess { release ->
                     _updateState.update {
@@ -98,7 +107,14 @@ class SettingsViewModel @Inject constructor(
     fun downloadUpdate() {
         val release = _updateState.value.releaseInfo ?: return
         val downloadId = updateChecker.downloadApk(release.apkUrl, release.versionName)
-        _updateState.update { it.copy(isDownloading = true, downloadId = downloadId, downloadedApkPath = null) }
+        _updateState.update {
+            it.copy(
+                isDownloading = true,
+                downloadId = downloadId,
+                downloadedApkPath = null,
+                requiresInstallPermission = false
+            )
+        }
         awaitDownloadResult(downloadId, release.versionName)
     }
 
@@ -114,14 +130,17 @@ class SettingsViewModel @Inject constructor(
                             error = null
                         )
                     }
-                    if (result.apkFile.exists()) {
-                        updateChecker.installApk(result.apkFile)
-                    }
+                    tryInstallApk(result.apkFile)
                 }
                 is ApkDownloadResult.Failed -> {
                     if (downloadId != _updateState.value.downloadId) return@launch
                     _updateState.update {
-                        it.copy(isDownloading = false, downloadedApkPath = null, error = result.message)
+                        it.copy(
+                            isDownloading = false,
+                            downloadedApkPath = null,
+                            requiresInstallPermission = false,
+                            error = result.message
+                        )
                     }
                 }
             }
@@ -131,9 +150,44 @@ class SettingsViewModel @Inject constructor(
     fun installDownloadedUpdate() {
         val apkFile = _updateState.value.downloadedApkPath?.let(::File) ?: return
         if (apkFile.exists()) {
+            tryInstallApk(apkFile)
+        } else {
+            _updateState.update {
+                it.copy(
+                    downloadedApkPath = null,
+                    requiresInstallPermission = false,
+                    error = "安装包文件不存在，请重新下载"
+                )
+            }
+        }
+    }
+
+    fun requestInstallPermission() {
+        updateChecker.openInstallPermissionSettings()
+    }
+
+    fun createInstallPermissionIntent(): Intent? =
+        updateChecker.createInstallPermissionSettingsIntent()
+
+    fun onInstallPermissionResult() {
+        val apkFile = _updateState.value.downloadedApkPath?.let(::File) ?: return
+        if (apkFile.exists()) {
+            tryInstallApk(apkFile)
+        }
+    }
+
+    private fun tryInstallApk(apkFile: File) {
+        if (!apkFile.exists()) return
+        if (updateChecker.canInstallDownloadedApks()) {
+            _updateState.update { it.copy(requiresInstallPermission = false, error = null) }
             updateChecker.installApk(apkFile)
         } else {
-            _updateState.update { it.copy(downloadedApkPath = null, error = "安装包文件不存在，请重新下载") }
+            _updateState.update {
+                it.copy(
+                    requiresInstallPermission = true,
+                    error = "请先允许 Age Android 安装未知应用，然后返回继续安装"
+                )
+            }
         }
     }
 
@@ -142,7 +196,15 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun dismissUpdate() {
-        _updateState.update { it.copy(releaseInfo = null, downloadedApkPath = null, error = null, message = null) }
+        _updateState.update {
+            it.copy(
+                releaseInfo = null,
+                downloadedApkPath = null,
+                requiresInstallPermission = false,
+                error = null,
+                message = null
+            )
+        }
     }
 
     fun setDuplicateStrategy(strategy: DuplicateStrategy) {

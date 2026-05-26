@@ -17,6 +17,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -58,6 +59,7 @@ fun GlassSurface(
     val border = GlassDefaults.glassBorder(emphasis)
     val glassEffectEnabled = LocalGlassEffectEnabled.current
     val shouldUseBackdrop = glassEffectEnabled && useRealBackdrop && backdrop != null && GlassDefaults.realBackdropEnabled
+    val shadowElevation = GlassDefaults.shadowElevation(emphasis)
 
     if (shouldUseBackdrop) {
         val drawSurface: DrawScope.() -> Unit = remember(surfaceColor, sheenBrush) {
@@ -78,7 +80,20 @@ fun GlassSurface(
                         }
                     },
                     highlight = { Highlight.Default.copy(alpha = 0.78f) },
-                    shadow = { Shadow.Default.copy(radius = 18.dp, alpha = if (emphasis == GlassEmphasis.Subtle) 0.28f else 0.56f) },
+                    shadow = {
+                        Shadow.Default.copy(
+                            radius = when (emphasis) {
+                                GlassEmphasis.Subtle -> 16.dp
+                                GlassEmphasis.Normal -> 28.dp
+                                GlassEmphasis.Strong -> 40.dp
+                            },
+                            alpha = when (emphasis) {
+                                GlassEmphasis.Subtle -> 0.36f
+                                GlassEmphasis.Normal -> 0.58f
+                                GlassEmphasis.Strong -> 0.72f
+                            }
+                        )
+                    },
                     onDrawSurface = drawSurface
                 )
                 .clip(shape)
@@ -91,6 +106,12 @@ fun GlassSurface(
     } else {
         Box(
             modifier = modifier
+                .shadow(
+                    elevation = shadowElevation,
+                    shape = shape,
+                    ambientColor = Color.Black.copy(alpha = 0.20f),
+                    spotColor = Color.Black.copy(alpha = 0.30f)
+                )
                 .background(surfaceColor, shape)
                 .clip(shape)
                 .then(if (glassEffectEnabled) Modifier.glassSheen(sheenBrush) else Modifier)
@@ -114,14 +135,20 @@ fun GlassTonalSurface(
     val contentColor = GlassDefaults.glassContentColor()
     val sheenBrush = GlassDefaults.glassSheenBrush(GlassEmphasis.Subtle)
     val glassEffectEnabled = LocalGlassEffectEnabled.current
+    val shadowModifier = modifier.shadow(
+        elevation = if (glassEffectEnabled) 6.dp else 0.dp,
+        shape = shape,
+        ambientColor = Color.Black.copy(alpha = 0.14f),
+        spotColor = Color.Black.copy(alpha = 0.20f)
+    )
     val surfaceModifier = if (border != null) {
-        modifier
+        shadowModifier
             .background(containerColor, shape)
             .clip(shape)
             .then(if (glassEffectEnabled) Modifier.glassSheen(sheenBrush) else Modifier)
             .border(border, shape)
     } else {
-        modifier
+        shadowModifier
             .background(containerColor, shape)
             .clip(shape)
             .then(if (glassEffectEnabled) Modifier.glassSheen(sheenBrush) else Modifier)

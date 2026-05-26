@@ -111,7 +111,7 @@ app (Compose + Material3 + Hilt + Room + DataStore)
 - 解密：优先按 tar / tar.gz 归档恢复；归档内目录会恢复为文件树，非归档 `.age` 会按单文件输出。
 - 输出位置：默认进入应用外部文件目录下的 `encrypted/` / `decrypted/`，也可通过 SAF 选择自定义目录。
 
-### v3.0.2 能力边界
+### v3.0.3 能力边界
 
 - `MainActivity` 接收 `ACTION_SEND` / `ACTION_SEND_MULTIPLE`，根据文件扩展名路由到加密或解密流程。
 - 加密/解密选择文件夹时，根目录下的每个子文件夹作为独立选择单位，可单独移除；展示和结果面板均使用文件树视图。分别加密模式会将选中的子文件夹先打成一个 tar，再加密为独立 `.tar.age` 输出。
@@ -228,7 +228,7 @@ unzip -l age-engine/libs/age-engine.aar
 
 | 配置项 | 值 |
 |--------|-----|
-| app version | 3.0.2 (`versionCode` 10) |
+| app version | 3.0.3 (`versionCode` 11) |
 | compileSdk | 36 |
 | minSdk | 26 |
 | targetSdk | 36 |

@@ -103,6 +103,10 @@ fun SettingsScreen(
         viewModel.setOutputDirUri(uri)
     }
 
+    val installPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        viewModel.onInstallPermissionResult()
+    }
+
     val resolvedPath = remember(outputDirUri) {
         viewModel.resolveUriToPath(outputDirUri)
     }
@@ -256,6 +260,14 @@ fun SettingsScreen(
                 onCheck = { viewModel.checkForUpdate() },
                 onDownload = { viewModel.downloadUpdate() },
                 onInstall = { viewModel.installDownloadedUpdate() },
+                onRequestInstallPermission = {
+                    val intent = viewModel.createInstallPermissionIntent()
+                    if (intent != null) {
+                        installPermissionLauncher.launch(intent)
+                    } else {
+                        viewModel.requestInstallPermission()
+                    }
+                },
                 onDismiss = { viewModel.dismissUpdate() }
             )
 
@@ -617,6 +629,7 @@ private fun UpdateSection(
     onCheck: () -> Unit,
     onDownload: () -> Unit,
     onInstall: () -> Unit,
+    onRequestInstallPermission: () -> Unit,
     onDismiss: () -> Unit
 ) {
     SettingsSection(backdrop = backdrop, title = "检查更新") {
@@ -655,8 +668,10 @@ private fun UpdateSection(
                 release = release,
                 isDownloading = updateState.isDownloading,
                 isDownloaded = updateState.downloadedApkPath != null,
+                requiresInstallPermission = updateState.requiresInstallPermission,
                 onDownload = onDownload,
                 onInstall = onInstall,
+                onRequestInstallPermission = onRequestInstallPermission,
                 onDismiss = onDismiss
             )
         }
@@ -676,8 +691,10 @@ private fun ReleasePanel(
     release: ReleaseInfo,
     isDownloading: Boolean,
     isDownloaded: Boolean,
+    requiresInstallPermission: Boolean,
     onDownload: () -> Unit,
     onInstall: () -> Unit,
+    onRequestInstallPermission: () -> Unit,
     onDismiss: () -> Unit
 ) {
     GlassTonalSurface(modifier = Modifier.fillMaxWidth()) {
@@ -704,7 +721,11 @@ private fun ReleasePanel(
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassButton(
-                    onClick = if (isDownloaded) onInstall else onDownload,
+                    onClick = when {
+                        requiresInstallPermission -> onRequestInstallPermission
+                        isDownloaded -> onInstall
+                        else -> onDownload
+                    },
                     enabled = !isDownloading,
                     modifier = Modifier.weight(1f)
                 ) {
@@ -715,7 +736,7 @@ private fun ReleasePanel(
                     } else if (isDownloaded) {
                         Icon(Icons.Default.Update, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("立即安装")
+                        Text(if (requiresInstallPermission) "申请安装权限" else "立即安装")
                     } else {
                         Icon(Icons.Default.Update, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))

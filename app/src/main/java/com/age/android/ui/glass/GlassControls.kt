@@ -38,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.contentDescription
@@ -56,27 +57,32 @@ fun GlassButton(
     content: @Composable RowScope.() -> Unit
 ) {
     val dark = isGlassDarkTheme()
+    val shape = MaterialTheme.shapes.extraLarge
     Button(
         onClick = onClick,
         modifier = modifier.heightIn(min = 56.dp),
         enabled = enabled,
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = shape,
         colors = ButtonDefaults.buttonColors(
             containerColor = if (dark) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.88f)
             } else {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.76f)
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.94f)
             },
             contentColor = if (dark) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimary,
-            disabledContainerColor = glassControlContainerColor().copy(alpha = if (dark) 0.40f else 0.48f),
+            disabledContainerColor = glassControlContainerColor(stronger = true).copy(alpha = if (dark) 0.44f else 0.54f),
             disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.52f)
         ),
-        border = null,
+        border = if (LocalGlassEffectEnabled.current) {
+            BorderStroke(0.7.dp, Color.White.copy(alpha = if (dark) 0.18f else 0.30f))
+        } else {
+            null
+        },
         elevation = ButtonDefaults.buttonElevation(
-            defaultElevation = 0.dp,
-            pressedElevation = 0.dp,
-            focusedElevation = 0.dp,
-            hoveredElevation = 0.dp,
+            defaultElevation = 4.dp,
+            pressedElevation = 1.dp,
+            focusedElevation = 5.dp,
+            hoveredElevation = 5.dp,
             disabledElevation = 0.dp
         ),
         content = content
@@ -90,15 +96,29 @@ fun GlassOutlinedButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
+    val shape = MaterialTheme.shapes.extraLarge
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.heightIn(min = 52.dp),
+        modifier = modifier
+            .heightIn(min = 52.dp)
+            .then(
+                if (LocalGlassEffectEnabled.current) {
+                    Modifier.shadow(
+                        elevation = 2.dp,
+                        shape = shape,
+                        ambientColor = Color.Black.copy(alpha = 0.10f),
+                        spotColor = Color.Black.copy(alpha = 0.14f)
+                    )
+                } else {
+                    Modifier
+                }
+            ),
         enabled = enabled,
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = shape,
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = glassControlContainerColor(),
+            containerColor = glassControlContainerColor(stronger = true),
             contentColor = MaterialTheme.colorScheme.onSurface,
-            disabledContainerColor = glassControlContainerColor().copy(alpha = 0.34f),
+            disabledContainerColor = glassControlContainerColor(stronger = true).copy(alpha = 0.34f),
             disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.48f)
         ),
         border = glassControlBorder(),
@@ -188,7 +208,7 @@ fun GlassSwitch(
             } else {
                 MaterialTheme.colorScheme.onPrimary
             },
-            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = if (dark) 0.48f else 0.78f),
+            checkedTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = if (dark) 0.64f else 0.86f),
             checkedBorderColor = glassControlBorderColor(),
             uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (dark) 0.74f else 0.66f),
             uncheckedTrackColor = glassControlContainerColor(stronger = true),
@@ -263,7 +283,7 @@ fun <T> GlassSegmentedControl(
     Row(
         modifier = modifier
             .clip(shape)
-            .background(glassControlContainerColor(), shape)
+            .background(glassControlContainerColor(stronger = true), shape)
             .then(glassControlBorder()?.let { Modifier.border(it, shape) } ?: Modifier)
             .padding(4.dp)
             .selectableGroup(),
@@ -274,7 +294,7 @@ fun <T> GlassSegmentedControl(
             val selected = option.value == selectedValue
             val itemShape = RoundedCornerShape(999.dp)
             val itemContainer = if (selected) {
-                MaterialTheme.colorScheme.primary.copy(alpha = if (dark) 0.20f else 0.13f)
+                MaterialTheme.colorScheme.primary.copy(alpha = if (dark) 0.36f else 0.24f)
             } else {
                 Color.Transparent
             }
@@ -289,6 +309,18 @@ fun <T> GlassSegmentedControl(
                     modifier = Modifier
                         .weight(1f)
                         .heightIn(min = 44.dp)
+                        .then(
+                            if (selected && LocalGlassEffectEnabled.current) {
+                                Modifier.shadow(
+                                    elevation = 2.dp,
+                                    shape = itemShape,
+                                    ambientColor = Color.Black.copy(alpha = 0.10f),
+                                    spotColor = Color.Black.copy(alpha = 0.14f)
+                                )
+                            } else {
+                                Modifier
+                            }
+                        )
                         .clip(itemShape)
                         .background(itemContainer, itemShape)
                         .selectable(
@@ -326,10 +358,10 @@ private fun glassControlContainerColor(stronger: Boolean = false): Color {
         }
     }
     val alpha = when {
-        dark && stronger -> 0.24f
-        dark -> 0.14f
-        stronger -> 0.44f
-        else -> 0.30f
+        dark && stronger -> 0.36f
+        dark -> 0.24f
+        stronger -> 0.58f
+        else -> 0.42f
     }
     val source = if (dark) {
         MaterialTheme.colorScheme.surfaceVariant
@@ -349,9 +381,9 @@ private fun glassControlBorderColor(): Color {
         }
     }
     return if (isGlassDarkTheme()) {
-        Color.White.copy(alpha = 0.055f)
+        Color.White.copy(alpha = 0.12f)
     } else {
-        Color.White.copy(alpha = 0.30f)
+        MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)
     }
 }
 
@@ -360,7 +392,7 @@ private fun glassControlBorder(): BorderStroke? {
     if (!LocalGlassEffectEnabled.current) {
         return BorderStroke(1.dp, glassControlBorderColor())
     }
-    return null
+    return BorderStroke(0.7.dp, glassControlBorderColor())
 }
 
 @Composable
