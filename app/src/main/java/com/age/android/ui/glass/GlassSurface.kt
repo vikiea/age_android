@@ -53,7 +53,6 @@ fun GlassSurface(
     useRealBackdrop: Boolean = true,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val surfaceColor = GlassDefaults.glassContainerColor(emphasis)
     val backdropTint = GlassDefaults.glassBackdropTint(emphasis)
     val sheenBrush = GlassDefaults.glassSheenBrush(emphasis)
     val contentColor = GlassDefaults.glassContentColor()
@@ -65,10 +64,9 @@ fun GlassSurface(
     val shadowSpotColor = GlassDefaults.glassShadowSpotColor(emphasis)
 
     if (shouldUseBackdrop) {
-        val drawSurface: DrawScope.() -> Unit = remember(backdropTint, surfaceColor, sheenBrush) {
+        val drawSurface: DrawScope.() -> Unit = remember(backdropTint, sheenBrush) {
             {
                 drawRect(backdropTint)
-                drawRect(surfaceColor)
                 drawRect(sheenBrush)
             }
         }
@@ -116,7 +114,7 @@ fun GlassSurface(
                     ambientColor = shadowAmbientColor,
                     spotColor = shadowSpotColor
                 )
-                .background(surfaceColor, shape)
+                .background(GlassDefaults.glassContainerColor(emphasis), shape)
                 .clip(shape)
                 .then(if (glassEffectEnabled) Modifier.glassSheen(sheenBrush) else Modifier)
                 .then(if (border != null) Modifier.border(border, shape) else Modifier),

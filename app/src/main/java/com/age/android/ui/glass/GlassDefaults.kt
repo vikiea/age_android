@@ -72,6 +72,44 @@ object GlassDefaults {
     @Composable
     fun glassContainerColor(emphasis: GlassEmphasis = GlassEmphasis.Normal): Color {
         val dark = MaterialTheme.colorScheme.background.luminance() < 0.20f
+        return glassContainerBaseColor(dark, emphasis).copy(
+            alpha = glassContainerAlpha(
+                glassEffectEnabled = LocalGlassEffectEnabled.current,
+                dark = dark,
+                emphasis = emphasis
+            )
+        )
+    }
+
+    @Composable
+    fun glassBackdropTint(emphasis: GlassEmphasis = GlassEmphasis.Normal): Color {
+        return glassContainerColor(emphasis)
+    }
+
+    internal fun glassContainerAlpha(
+        glassEffectEnabled: Boolean,
+        dark: Boolean,
+        emphasis: GlassEmphasis
+    ): Float {
+        if (!glassEffectEnabled) {
+            return 1f
+        }
+        return if (dark) {
+            when (emphasis) {
+                GlassEmphasis.Subtle -> 0.70f
+                GlassEmphasis.Normal -> 0.78f
+                GlassEmphasis.Strong -> 0.86f
+            }
+        } else {
+            when (emphasis) {
+                GlassEmphasis.Subtle -> 0.56f
+                GlassEmphasis.Normal -> 0.66f
+                GlassEmphasis.Strong -> 0.76f
+            }
+        }
+    }
+
+    private fun glassContainerBaseColor(dark: Boolean, emphasis: GlassEmphasis): Color {
         return if (dark) {
             when (emphasis) {
                 GlassEmphasis.Subtle -> Color(0xFF0B0B0B)
@@ -79,39 +117,8 @@ object GlassDefaults {
                 GlassEmphasis.Strong -> Color(0xFF1A1A1A)
             }
         } else {
-            when (emphasis) {
-                GlassEmphasis.Subtle -> Color.White
-                GlassEmphasis.Normal -> Color.White
-                GlassEmphasis.Strong -> Color.White
-            }
-        }
-    }
-
-    @Composable
-    fun glassBackdropTint(emphasis: GlassEmphasis = GlassEmphasis.Normal): Color {
-        val dark = MaterialTheme.colorScheme.background.luminance() < 0.20f
-        if (!LocalGlassEffectEnabled.current) {
-            return glassContainerColor(emphasis)
-        }
-        val alpha = if (dark) {
-            when (emphasis) {
-                GlassEmphasis.Subtle -> 0.46f
-                GlassEmphasis.Normal -> 0.62f
-                GlassEmphasis.Strong -> 0.76f
-            }
-        } else {
-            when (emphasis) {
-                GlassEmphasis.Subtle -> 0.62f
-                GlassEmphasis.Normal -> 0.82f
-                GlassEmphasis.Strong -> 0.93f
-            }
-        }
-        val source = if (dark) {
-            Color(0xFF1A1A1A)
-        } else {
             Color.White
         }
-        return source.copy(alpha = alpha)
     }
 
     @Composable
