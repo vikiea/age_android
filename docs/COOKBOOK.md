@@ -60,7 +60,7 @@ ndk-build --version           # NDK 27.x
 age_android/
 ├── app/                          # Android 应用模块
 │   ├── build.gradle.kts          # 应用构建配置
-│   └── src/main/java/com/age/android/
+│   └── src/main/java/io/github/vikiea/age/
 │       ├── feature/              # 加密、解密、密钥、历史、设置界面
 │       ├── core/
 │       │   ├── data/             # Room、DataStore、Repository
@@ -83,8 +83,8 @@ age_android/
 │       │   ├── go.mod
 │       │   └── go.sum
 │       └── java/
-│           ├── com/age/android/core/age/AgeEngine.kt
-│           └── com/age/engine/AgeEngineImpl.kt
+│           ├── io/github/vikiea/age/core/age/AgeEngine.kt
+│           └── io/github/vikiea/age/engine/AgeEngineImpl.kt
 ├── build.gradle.kts              # 根构建配置
 ├── settings.gradle.kts           # 模块声明
 ├── gradle/wrapper/
@@ -111,7 +111,7 @@ app (Compose + Material3 + Hilt + Room + DataStore)
 - 解密：优先按 tar / tar.gz 归档恢复；归档内目录会恢复为文件树，非归档 `.age` 会按单文件输出。
 - 输出位置：默认进入应用外部文件目录下的 `encrypted/` / `decrypted/`，也可通过 SAF 选择自定义目录。
 
-### v3.1.1 能力边界
+### v4.0.0 能力边界
 
 - `MainActivity` 接收 `ACTION_SEND` / `ACTION_SEND_MULTIPLE`，根据文件扩展名路由到加密或解密流程。
 - 加密/解密选择文件夹时，根目录下的每个子文件夹作为独立选择单位，可单独移除；展示和结果面板均使用文件树视图。分别加密模式会将选中的子文件夹先打成一个 tar，再加密为独立 `.tar.age` 输出。
@@ -159,7 +159,7 @@ gomobile bind \
   -target=android \
   -androidapi=26 \
   -o ../../libs/age-engine.aar \
-  -javapkg=com.age.engine \
+  -javapkg=io.github.vikiea.age.engine \
   .
 ```
 
@@ -167,7 +167,7 @@ gomobile bind \
 - `-target=android`: 编译目标为 Android
 - `-androidapi=26`: 最低 Android API 26 (Android 8.0)
 - `-o ../../libs/age-engine.aar`: 输出到 `age-engine/libs/` 目录
-- `-javapkg=com.age.engine`: 生成的 Java 包名为 `com.age.engine`
+- `-javapkg=io.github.vikiea.age.engine`: 生成的 Java 包名为 `io.github.vikiea.age.engine`
 - `.`: 编译当前目录的 Go 包
 
 ### 3.4 验证编译产物
@@ -181,7 +181,7 @@ ls -lh age-engine/libs/age-engine.aar
 unzip -l age-engine/libs/age-engine.aar
 
 # 应包含:
-# - classes.jar (含 com.age.engine.ageengine.Ageengine 等类)
+# - classes.jar (含 io.github.vikiea.age.engine.ageengine.Ageengine 等类)
 # - jni/arm64-v8a/libgojni.so
 # - jni/armeabi-v7a/libgojni.so
 # - jni/x86/libgojni.so
@@ -194,8 +194,8 @@ unzip -l age-engine/libs/age-engine.aar
 
 | 类名 | 说明 |
 |------|------|
-| `com.age.engine.ageengine.Ageengine` | 静态方法桥接类 |
-| `com.age.engine.ageengine.KeyPairResult` | 密钥对结果（含 `getPublicKey()`, `getPrivateKey()`） |
+| `io.github.vikiea.age.engine.ageengine.Ageengine` | 静态方法桥接类 |
+| `io.github.vikiea.age.engine.ageengine.KeyPairResult` | 密钥对结果（含 `getPublicKey()`, `getPrivateKey()`） |
 | `go.Seq` | gomobile 运行时序列化 |
 | `go.Universe` | gomobile 运行时全局注册 |
 
@@ -228,7 +228,7 @@ unzip -l age-engine/libs/age-engine.aar
 
 | 配置项 | 值 |
 |--------|-----|
-| app version | 3.1.1 (`versionCode` 13) |
+| app version | 4.0.0 (`versionCode` 14) |
 | compileSdk | 36 |
 | minSdk | 26 |
 | targetSdk | 36 |
@@ -295,7 +295,7 @@ $ANDROID_HOME/platform-tools/adb devices
 $ANDROID_HOME/platform-tools/adb install app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 
 # 启动应用
-$ANDROID_HOME/platform-tools/adb shell am start -n com.age.android/.MainActivity
+$ANDROID_HOME/platform-tools/adb shell am start -n io.github.vikiea.age/.MainActivity
 ```
 
 ### 5.5 查看日志
@@ -413,7 +413,7 @@ make engine
 $ANDROID_HOME/platform-tools/adb install -r app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
 
 # 4. 启动应用
-$ANDROID_HOME/platform-tools/adb shell am start -n com.age.android/.MainActivity
+$ANDROID_HOME/platform-tools/adb shell am start -n io.github.vikiea.age/.MainActivity
 ```
 
 ### 常用命令速查
@@ -430,7 +430,7 @@ make release                           # Release APKs
 # 设备
 adb devices                            # 列出设备
 adb install -r app.apk                # 安装 APK
-adb shell am start -n com.age.android/.MainActivity  # 启动应用
+adb shell am start -n io.github.vikiea.age/.MainActivity  # 启动应用
 adb logcat                             # 查看日志
 adb shell pm list packages | grep age  # 确认安装
 

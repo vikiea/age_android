@@ -6,7 +6,7 @@ plugins {
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 android {
-    namespace = "com.age.engine"
+    namespace = "io.github.vikiea.age.engine"
     compileSdk = 36
 
     defaultConfig {

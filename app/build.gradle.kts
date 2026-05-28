@@ -16,15 +16,15 @@ val localProps = Properties().apply {
 }
 
 android {
-    namespace = "com.age.android"
+    namespace = "io.github.vikiea.age"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.age.android"
+        applicationId = "io.github.vikiea.age"
         minSdk = 26
         targetSdk = 36
-        versionCode = 13
-        versionName = "3.1.1"
+        versionCode = 14
+        versionName = "4.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

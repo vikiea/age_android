@@ -1,7 +1,7 @@
 # ── gomobile (age engine) ──────────────────────────────────
 # libgojni resolves gomobile runtime classes and methods by exact Java names.
 -keep class go.** { *; }
--keep class com.age.engine.ageengine.** { *; }
+-keep class io.github.vikiea.age.engine.ageengine.** { *; }
 
 # ── Hilt ───────────────────────────────────────────────────
 -keep class dagger.hilt.** { *; }
@@ -26,5 +26,5 @@
 -keep class androidx.datastore.** { *; }
 
 # ── Age app models (Room entities + serialization) ─────────
--keep class com.age.android.core.model.** { *; }
--keep class com.age.android.core.data.** { *; }
+-keep class io.github.vikiea.age.core.model.** { *; }
+-keep class io.github.vikiea.age.core.data.** { *; }

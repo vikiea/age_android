@@ -20,7 +20,7 @@ engine: ## Rebuild Go engine AAR via gomobile
 		-target=android -androidapi=26 \
 		-ldflags='$(GOMOBILE_LDFLAGS)' \
 		-o $(CURDIR)/$(ENGINE_AAR) \
-		-javapkg=com.age.engine .
+		-javapkg=io.github.vikiea.age.engine .
 	@# Extract AAR → classes.jar + jniLibs (release build requires this)
 	@cd /tmp && rm -rf _aar_extract && mkdir _aar_extract && cd _aar_extract \
 		&& unzip -q $(CURDIR)/$(ENGINE_AAR)
