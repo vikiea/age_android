@@ -5,16 +5,16 @@
  */
 package io.github.vikiea.age.ui.theme
 
-import android.os.Build
+import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import io.github.vikiea.age.core.data.ThemeAccent
 import io.github.vikiea.age.core.data.ThemeMode
 
@@ -67,9 +67,9 @@ private val LightColorScheme = lightColorScheme(
     secondaryContainer = Color(0xFFC8F2FA),
     onSecondaryContainer = Color(0xFF003640),
     tertiary = Color(0xFF8B5A00),
-    background = Color(0xFFF3F6FA),
+    background = Color(0xFFF4F3F8),
     onBackground = AgeInk,
-    surface = Color(0xFFFAFAFA),
+    surface = Color(0xFFFCFBFE),
     onSurface = AgeInk,
     surfaceVariant = Color(0xFFE8E8E8),
     onSurfaceVariant = AgeSlate,
@@ -80,8 +80,6 @@ private val LightColorScheme = lightColorScheme(
 fun AgeAndroidTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     themeAccent: ThemeAccent = ThemeAccent.LIQUID_DEFAULT,
-    glassEffectEnabled: Boolean = true,
-    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val systemDarkTheme = isSystemInDarkTheme()
@@ -91,13 +89,17 @@ fun AgeAndroidTheme(
         ThemeMode.LIGHT -> false
     }
 
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    val colorScheme = if (darkTheme) darkColorSchemeFor(themeAccent) else lightColorSchemeFor(themeAccent)
+
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
         }
-        darkTheme -> darkColorSchemeFor(themeAccent, glassEffectEnabled)
-        else -> lightColorSchemeFor(themeAccent, glassEffectEnabled)
     }
 
     MaterialTheme(
@@ -107,7 +109,7 @@ fun AgeAndroidTheme(
     )
 }
 
-private fun lightColorSchemeFor(accent: ThemeAccent, glassEffectEnabled: Boolean) = LightColorScheme.copy(
+private fun lightColorSchemeFor(accent: ThemeAccent) = LightColorScheme.copy(
     primary = accent.lightPrimary,
     primaryContainer = accent.lightPrimaryContainer,
     onPrimaryContainer = accent.lightOnPrimaryContainer,
@@ -115,20 +117,24 @@ private fun lightColorSchemeFor(accent: ThemeAccent, glassEffectEnabled: Boolean
     secondaryContainer = accent.lightSecondaryContainer,
     onSecondaryContainer = accent.lightOnSecondaryContainer,
     tertiary = accent.lightTertiary,
-    background = Color(0xFFF3F6FA),
-    surface = Color(0xFFFAFAFA),
-    surfaceVariant = Color(0xFFE8E8E8),
-    surfaceDim = Color(0xFFF7F7F7),
+    background = Color(0xFFF4F3F8),
+    onBackground = Color(0xFF121619),
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF121619),
+    surfaceVariant = Color(0xFFE7EBEF),
+    onSurfaceVariant = Color(0xFF46515A),
+    surfaceDim = Color(0xFFE8ECEF),
     surfaceBright = Color.White,
     surfaceContainerLowest = Color.White,
-    surfaceContainerLow = Color(0xFFFCFCFC),
-    surfaceContainer = Color(0xFFF8F8F8),
-    surfaceContainerHigh = Color(0xFFF3F3F3),
-    surfaceContainerHighest = Color(0xFFEDEDED),
-    outline = accent.lightOutline
+    surfaceContainerLow = Color(0xFFFCFBFE),
+    surfaceContainer = Color(0xFFF7F6FA),
+    surfaceContainerHigh = Color(0xFFF0EFF4),
+    surfaceContainerHighest = Color(0xFFE8E7ED),
+    outline = accent.lightOutline,
+    outlineVariant = Color(0xFFC2C9D0)
 )
 
-private fun darkColorSchemeFor(accent: ThemeAccent, glassEffectEnabled: Boolean) = DarkColorScheme.copy(
+private fun darkColorSchemeFor(accent: ThemeAccent) = DarkColorScheme.copy(
     primary = accent.darkPrimary,
     primaryContainer = accent.darkPrimaryContainer,
     onPrimaryContainer = accent.darkOnPrimaryContainer,
@@ -136,16 +142,21 @@ private fun darkColorSchemeFor(accent: ThemeAccent, glassEffectEnabled: Boolean)
     secondaryContainer = accent.darkSecondaryContainer,
     onSecondaryContainer = accent.darkOnSecondaryContainer,
     tertiary = accent.darkTertiary,
-    background = Color.Black,
-    surface = Color(0xFF050505),
-    surfaceVariant = Color(0xFF151515),
-    surfaceDim = Color.Black,
-    surfaceBright = Color(0xFF181818),
-    surfaceContainerLowest = Color.Black,
-    surfaceContainerLow = Color(0xFF050505),
-    surfaceContainer = Color(0xFF0B0B0B),
-    surfaceContainerHigh = Color(0xFF111111),
-    surfaceContainerHighest = Color(0xFF1A1A1A),
+    background = Color(0xFF080A0C),
+    onBackground = Color(0xFFF1F4F6),
+    surface = Color(0xFF111417),
+    onSurface = Color(0xFFF1F4F6),
+    surfaceVariant = Color(0xFF252B30),
+    onSurfaceVariant = Color(0xFFB8C1C9),
+    surfaceDim = Color(0xFF080A0C),
+    surfaceBright = Color(0xFF30363C),
+    surfaceContainerLowest = Color(0xFF050708),
+    surfaceContainerLow = Color(0xFF0E1113),
+    surfaceContainer = Color(0xFF15191C),
+    surfaceContainerHigh = Color(0xFF1D2226),
+    surfaceContainerHighest = Color(0xFF282E33),
+    outline = Color(0xFF87929C),
+    outlineVariant = Color(0xFF394149),
     inversePrimary = accent.lightPrimary
 )
 

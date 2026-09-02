@@ -23,7 +23,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,7 +48,8 @@ import io.github.vikiea.age.ui.glass.GlassBackdrop
 import io.github.vikiea.age.ui.glass.GlassSegmentOption
 import io.github.vikiea.age.ui.glass.GlassSegmentedControl
 import io.github.vikiea.age.ui.glass.GlassTextButton
-import io.github.vikiea.age.ui.glass.GlassTopBar
+import io.github.vikiea.age.ui.glass.AppTopBar
+import io.github.vikiea.age.ui.glass.TopBarActionButton
 import io.github.vikiea.age.ui.glass.GlassTonalSurface
 import io.github.vikiea.age.ui.components.FilePathTreeView
 import java.text.SimpleDateFormat
@@ -72,13 +72,15 @@ fun HistoryScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        GlassTopBar(
-            title = stringResource(R.string.history_title),
-            backdrop = backdrop,
+        AppTopBar(
             actions = {
-                IconButton(onClick = { viewModel.showClearDialog() }) {
-                    Icon(Icons.Default.DeleteSweep, contentDescription = stringResource(R.string.clear_history))
-                }
+                TopBarActionButton(
+                    imageVector = Icons.Default.DeleteSweep,
+                    contentDescription = stringResource(R.string.clear_history),
+                    onClick = { viewModel.showClearDialog() },
+                    backdrop = backdrop,
+                    tint = MaterialTheme.colorScheme.error
+                )
             }
         )
 
@@ -149,7 +151,6 @@ private fun HistoryList(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         SectionTitle(stringResource(R.string.records))
-        HorizontalDivider()
         if (operations.isEmpty()) {
             Text(
                 stringResource(R.string.no_history),
@@ -175,7 +176,6 @@ private fun HistoryList(
 private fun HistoryPreview(operation: OperationRecord?, modifier: Modifier = Modifier) {
     Column(modifier = modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle(stringResource(R.string.operation_detail))
-        HorizontalDivider()
         if (operation == null) {
             Text(stringResource(R.string.no_history), color = MaterialTheme.colorScheme.onSurfaceVariant)
             return@Column

@@ -25,6 +25,7 @@ import org.junit.Before
 import org.junit.Test
 import java.io.File
 import java.nio.file.Files
+import java.time.LocalDateTime
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class EncryptViewModelTest {
@@ -74,6 +75,18 @@ class EncryptViewModelTest {
     @Test
     fun `initial state has batch mode`() {
         assertEquals(EncryptMode.BATCH_PACK, viewModel.uiState.value.mode)
+    }
+
+    @Test
+    fun `default archive name includes local timestamp`() {
+        val dateTime = LocalDateTime.of(2026, 9, 2, 15, 30, 12)
+
+        assertEquals("archive-20260902-153012", defaultArchiveBaseName(dateTime))
+    }
+
+    @Test
+    fun `initial authentication defaults to key`() {
+        assertFalse(viewModel.uiState.value.usePassphrase)
     }
 
     @Test
@@ -170,6 +183,7 @@ class EncryptViewModelTest {
 
         viewModel.addFilesFromFolder(dirUri)
         viewModel.setMode(EncryptMode.SEPARATE)
+        viewModel.setUsePassphrase(true)
         viewModel.setPassphrase("pw")
 
         viewModel.startEncrypt()
@@ -203,6 +217,8 @@ class EncryptViewModelTest {
         coEvery { ageEngine.encryptStreamToFile(any(), any(), "pw", any()) } just Runs
 
         viewModel.addFiles(listOf(uri))
+        viewModel.setOutputFileBaseName("archive")
+        viewModel.setUsePassphrase(true)
         viewModel.setPassphrase("pw")
 
         viewModel.startEncrypt()

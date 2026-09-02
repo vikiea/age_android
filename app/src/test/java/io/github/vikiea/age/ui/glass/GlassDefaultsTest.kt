@@ -6,13 +6,13 @@ import org.junit.Test
 
 class GlassDefaultsTest {
     @Test
-    fun glassContainerAlphaIsTranslucentWhenGlassEffectIsEnabled() {
+    fun glassContainerAlphaIsFrostedAndMostlyOpaqueWhenGlassEffectIsEnabled() {
         assertTrue(
             GlassDefaults.glassContainerAlpha(
                 glassEffectEnabled = true,
                 dark = false,
                 emphasis = GlassEmphasis.Normal
-            ) <= 0.70f
+            ) in 0.84f..0.95f
         )
         assertTrue(
             GlassDefaults.glassContainerAlpha(

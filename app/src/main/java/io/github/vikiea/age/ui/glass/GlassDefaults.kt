@@ -28,9 +28,9 @@ val LocalGlassEffectEnabled = compositionLocalOf { true }
 object GlassDefaults {
     val ScreenPadding = 16.dp
     val SectionSpacing = 14.dp
-    val PanelShape @Composable get() = MaterialTheme.shapes.large
-    val CompactShape @Composable get() = MaterialTheme.shapes.medium
-    val NavShape @Composable get() = MaterialTheme.shapes.large
+    val PanelShape @Composable get() = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
+    val CompactShape @Composable get() = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+    val NavShape @Composable get() = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
 
     val supportsBackdrop: Boolean
         get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -55,19 +55,18 @@ object GlassDefaults {
         }
 
     fun backdropBlurRadius(emphasis: GlassEmphasis): Float = when (emphasis) {
-        GlassEmphasis.Subtle -> 22f
-        GlassEmphasis.Normal -> 34f
-        GlassEmphasis.Strong -> 46f
+        GlassEmphasis.Subtle -> 34f
+        GlassEmphasis.Normal -> 48f
+        GlassEmphasis.Strong -> 64f
     }
 
     fun shadowElevation(emphasis: GlassEmphasis): Dp = when (emphasis) {
-        GlassEmphasis.Subtle -> 8.dp
-        GlassEmphasis.Normal -> 18.dp
-        GlassEmphasis.Strong -> 30.dp
+        GlassEmphasis.Subtle -> 3.dp
+        GlassEmphasis.Normal -> 6.dp
+        GlassEmphasis.Strong -> 10.dp
     }
 
-    fun useLens(emphasis: GlassEmphasis): Boolean =
-        supportsLens && emphasis == GlassEmphasis.Strong
+    fun useLens(@Suppress("UNUSED_PARAMETER") emphasis: GlassEmphasis): Boolean = false
 
     @Composable
     fun glassContainerColor(emphasis: GlassEmphasis = GlassEmphasis.Normal): Color {
@@ -96,15 +95,15 @@ object GlassDefaults {
         }
         return if (dark) {
             when (emphasis) {
-                GlassEmphasis.Subtle -> 0.70f
-                GlassEmphasis.Normal -> 0.78f
-                GlassEmphasis.Strong -> 0.86f
+                GlassEmphasis.Subtle -> 0.76f
+                GlassEmphasis.Normal -> 0.82f
+                GlassEmphasis.Strong -> 0.88f
             }
         } else {
             when (emphasis) {
-                GlassEmphasis.Subtle -> 0.56f
-                GlassEmphasis.Normal -> 0.66f
-                GlassEmphasis.Strong -> 0.76f
+                GlassEmphasis.Subtle -> 0.84f
+                GlassEmphasis.Normal -> 0.90f
+                GlassEmphasis.Strong -> 0.94f
             }
         }
     }
@@ -134,15 +133,15 @@ object GlassDefaults {
         val dark = MaterialTheme.colorScheme.background.luminance() < 0.20f
         val topAlpha = if (dark) {
             when (emphasis) {
-                GlassEmphasis.Subtle -> 0.070f
-                GlassEmphasis.Normal -> 0.120f
-                GlassEmphasis.Strong -> 0.170f
+                GlassEmphasis.Subtle -> 0.06f
+                GlassEmphasis.Normal -> 0.09f
+                GlassEmphasis.Strong -> 0.12f
             }
         } else {
             when (emphasis) {
-                GlassEmphasis.Subtle -> 0.38f
-                GlassEmphasis.Normal -> 0.52f
-                GlassEmphasis.Strong -> 0.62f
+                GlassEmphasis.Subtle -> 0.16f
+                GlassEmphasis.Normal -> 0.22f
+                GlassEmphasis.Strong -> 0.28f
             }
         }
         return Brush.verticalGradient(
@@ -150,7 +149,7 @@ object GlassDefaults {
                 Color.White.copy(alpha = topAlpha),
                 Color.White.copy(alpha = topAlpha * 0.26f),
                 Color.Transparent,
-                Color.Black.copy(alpha = if (dark) 0.18f else 0.06f)
+                Color.Black.copy(alpha = if (dark) 0.06f else 0.015f)
             )
         )
     }
@@ -159,9 +158,9 @@ object GlassDefaults {
     fun glassShadowAmbientColor(emphasis: GlassEmphasis): Color {
         val dark = MaterialTheme.colorScheme.background.luminance() < 0.20f
         val alpha = when (emphasis) {
-            GlassEmphasis.Subtle -> if (dark) 0.06f else 0.16f
-            GlassEmphasis.Normal -> if (dark) 0.09f else 0.20f
-            GlassEmphasis.Strong -> if (dark) 0.12f else 0.26f
+            GlassEmphasis.Subtle -> if (dark) 0.05f else 0.06f
+            GlassEmphasis.Normal -> if (dark) 0.07f else 0.09f
+            GlassEmphasis.Strong -> if (dark) 0.10f else 0.12f
         }
         return if (dark) {
             Color.White.copy(alpha = alpha)
@@ -174,9 +173,9 @@ object GlassDefaults {
     fun glassShadowSpotColor(emphasis: GlassEmphasis): Color {
         val dark = MaterialTheme.colorScheme.background.luminance() < 0.20f
         val alpha = when (emphasis) {
-            GlassEmphasis.Subtle -> if (dark) 0.30f else 0.20f
-            GlassEmphasis.Normal -> if (dark) 0.42f else 0.28f
-            GlassEmphasis.Strong -> if (dark) 0.54f else 0.36f
+            GlassEmphasis.Subtle -> if (dark) 0.20f else 0.10f
+            GlassEmphasis.Normal -> if (dark) 0.26f else 0.14f
+            GlassEmphasis.Strong -> if (dark) 0.32f else 0.18f
         }
         return Color.Black.copy(alpha = alpha)
     }
@@ -187,20 +186,15 @@ object GlassDefaults {
     @Composable
     fun glassBorder(emphasis: GlassEmphasis = GlassEmphasis.Normal): BorderStroke? {
         if (!LocalGlassEffectEnabled.current) {
-            val color = if (MaterialTheme.colorScheme.background.luminance() < 0.20f) {
-                Color.White.copy(alpha = 0.08f)
-            } else {
-                Color.Black.copy(alpha = 0.05f)
-            }
-            return BorderStroke(1.dp, color)
+            return BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         }
         val dark = MaterialTheme.colorScheme.background.luminance() < 0.20f
         val color = if (dark) {
-            Color.White.copy(alpha = if (emphasis == GlassEmphasis.Strong) 0.13f else 0.09f)
+            Color.White.copy(alpha = if (emphasis == GlassEmphasis.Strong) 0.22f else 0.14f)
         } else {
-            MaterialTheme.colorScheme.outline.copy(alpha = if (emphasis == GlassEmphasis.Strong) 0.14f else 0.10f)
+            Color.White.copy(alpha = if (emphasis == GlassEmphasis.Strong) 0.88f else 0.72f)
         }
-        return BorderStroke(0.7.dp, color)
+        return BorderStroke(1.dp, color)
     }
 
     @Composable

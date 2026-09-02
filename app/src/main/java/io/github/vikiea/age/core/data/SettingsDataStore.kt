@@ -81,8 +81,6 @@ class SettingsDataStore @Inject constructor(
     private val concurrencyKey = intPreferencesKey("concurrency")
     private val themeModeKey = stringPreferencesKey("theme_mode")
     private val themeAccentKey = stringPreferencesKey("theme_accent")
-    private val glassEffectEnabledKey = booleanPreferencesKey("glass_effect_enabled")
-    private val dynamicColorEnabledKey = booleanPreferencesKey("dynamic_color_enabled")
     private val appLanguageKey = stringPreferencesKey("app_language")
 
     @Volatile
@@ -124,14 +122,6 @@ class SettingsDataStore @Inject constructor(
         ThemeAccent.fromStoredName(preferences[themeAccentKey])
     }
 
-    val glassEffectEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[glassEffectEnabledKey] != false
-    }
-
-    val dynamicColorEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[dynamicColorEnabledKey] == true
-    }
-
     val appLanguage: Flow<AppLanguage> = context.dataStore.data.map { preferences ->
         AppLanguage.fromStoredName(preferences[appLanguageKey])
     }
@@ -166,7 +156,7 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun getEncryptUsePassphraseOnce(): Boolean {
         return context.dataStore.data.map { preferences ->
-            preferences[encryptUsePassphraseKey] != "false"
+            preferences[encryptUsePassphraseKey] == "true"
         }.first()
     }
 
@@ -178,7 +168,7 @@ class SettingsDataStore @Inject constructor(
 
     suspend fun getDecryptUsePassphraseOnce(): Boolean {
         return context.dataStore.data.map { preferences ->
-            preferences[decryptUsePassphraseKey] != "false"
+            preferences[decryptUsePassphraseKey] == "true"
         }.first()
     }
 
@@ -256,16 +246,6 @@ class SettingsDataStore @Inject constructor(
         context.dataStore.edit { preferences ->
             preferences[themeAccentKey] = accent.name
         }
-    }
-
-    suspend fun setGlassEffectEnabled(value: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[glassEffectEnabledKey] = value
-        }
-    }
-
-    suspend fun setDynamicColorEnabled(value: Boolean) {
-        context.dataStore.edit { preferences -> preferences[dynamicColorEnabledKey] = value }
     }
 
     suspend fun setAppLanguage(value: AppLanguage) {

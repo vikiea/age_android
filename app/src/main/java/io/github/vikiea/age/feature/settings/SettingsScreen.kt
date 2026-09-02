@@ -30,6 +30,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -38,12 +40,13 @@ import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -80,7 +83,8 @@ import io.github.vikiea.age.ui.glass.GlassSegmentedControl
 import io.github.vikiea.age.ui.glass.GlassSurface
 import io.github.vikiea.age.ui.glass.GlassSwitch
 import io.github.vikiea.age.ui.glass.GlassTextButton
-import io.github.vikiea.age.ui.glass.GlassTopBar
+import io.github.vikiea.age.ui.glass.AppTopBar
+import io.github.vikiea.age.ui.glass.TopBarActionButton
 import java.util.Locale
 import io.github.vikiea.age.ui.glass.GlassTonalSurface
 
@@ -96,8 +100,6 @@ fun SettingsScreen(
     val concurrency by viewModel.concurrency.collectAsState()
     val themeMode by viewModel.themeMode.collectAsState()
     val themeAccent by viewModel.themeAccent.collectAsState()
-    val glassEffectEnabled by viewModel.glassEffectEnabled.collectAsState()
-    val dynamicColorEnabled by viewModel.dynamicColorEnabled.collectAsState()
     val appLanguage by viewModel.appLanguage.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
     val context = LocalContext.current
@@ -115,25 +117,27 @@ fun SettingsScreen(
         viewModel.resolveUriToPath(outputDirUri)
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        GlassTopBar(
-            title = stringResource(R.string.settings_title),
-            backdrop = backdrop,
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
+    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            AppTopBar(
+                navigationIcon = {
+                    TopBarActionButton(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.common_back),
+                        onClick = onBack,
+                        backdrop = backdrop
+                    )
                 }
-            }
-        )
+            )
 
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
             SectionTitle(stringResource(R.string.appearance))
             SettingsSection(backdrop = backdrop, title = stringResource(R.string.theme)) {
                 Text(
@@ -168,22 +172,6 @@ fun SettingsScreen(
                     onAccentSelected = { viewModel.setThemeAccent(it) }
                 )
             }
-
-            ToggleSection(
-                backdrop = backdrop,
-                title = stringResource(R.string.glass_effect),
-                description = stringResource(if (glassEffectEnabled) R.string.glass_on_description else R.string.glass_off_description),
-                checked = glassEffectEnabled,
-                onCheckedChange = { viewModel.setGlassEffectEnabled(it) }
-            )
-
-            ToggleSection(
-                backdrop = backdrop,
-                title = stringResource(R.string.dynamic_color),
-                description = stringResource(if (dynamicColorEnabled) R.string.dynamic_color_on else R.string.dynamic_color_off),
-                checked = dynamicColorEnabled,
-                onCheckedChange = viewModel::setDynamicColorEnabled
-            )
 
             SectionTitle(stringResource(R.string.file_storage))
             SettingsSection(backdrop = backdrop, title = stringResource(R.string.save_location)) {
@@ -265,9 +253,7 @@ fun SettingsScreen(
             SectionTitle(stringResource(R.string.about))
             SettingsSection(backdrop = backdrop, title = stringResource(R.string.app_info)) {
                 DetailRow(stringResource(R.string.version), viewModel.getCurrentVersion())
-                HorizontalDivider()
                 DetailRow(stringResource(R.string.encryption_engine), "age (filippo.io)")
-                HorizontalDivider()
                 DetailRow(stringResource(R.string.open_source_license), "MIT License")
             }
 
@@ -288,9 +274,8 @@ fun SettingsScreen(
                 onDismiss = { viewModel.dismissUpdate() }
             )
 
-            SettingsSection(backdrop = backdrop, title = stringResource(R.string.author_project)) {
+                SettingsSection(backdrop = backdrop, title = stringResource(R.string.author_project)) {
                 DetailRow(stringResource(R.string.author), "vikiea")
-                HorizontalDivider()
                 GlassOutlinedButton(
                     onClick = { showDonationDialog = true },
                     modifier = Modifier.fillMaxWidth()
@@ -321,6 +306,7 @@ fun SettingsScreen(
                         )
                     }
                 )
+                }
             }
         }
     }
@@ -487,7 +473,6 @@ private fun SettingsSection(
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium
             )
-            HorizontalDivider()
             content()
     }
 }
@@ -529,62 +514,24 @@ private fun ThemeAccentPalette(
     selectedAccent: ThemeAccent,
     onAccentSelected: (ThemeAccent) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
             text = themeAccentDescription(selectedAccent),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        AccentGroup(
-            title = "Liquid Glass",
-            accents = ThemeAccent.entries.filter { it.liquidGlass },
-            selectedAccent = selectedAccent,
-            onAccentSelected = onAccentSelected
-        )
-        AccentGroup(
-            title = stringResource(R.string.accent_solid),
-            accents = ThemeAccent.entries.filterNot { it.liquidGlass },
-            selectedAccent = selectedAccent,
-            onAccentSelected = onAccentSelected
-        )
-    }
-}
-
-@Composable
-private fun AccentGroup(
-    title: String,
-    accents: List<ThemeAccent>,
-    selectedAccent: ThemeAccent,
-    onAccentSelected: (ThemeAccent) -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val compact = maxWidth < 380.dp
-            val rows = if (compact) accents.chunked(3) else accents.chunked(5)
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                rows.forEach { rowAccents ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        rowAccents.forEach { accent ->
-                            AccentSwatch(
-                                accent = accent,
-                                selected = accent == selectedAccent,
-                                onClick = { onAccentSelected(accent) },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                        repeat((if (compact) 3 else 5) - rowAccents.size) {
-                            Spacer(Modifier.weight(1f))
-                        }
-                    }
-                }
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(end = 12.dp)
+        ) {
+            items(ThemeAccent.entries, key = { it.name }) { accent ->
+                AccentSwatch(
+                    accent = accent,
+                    selected = accent == selectedAccent,
+                    onClick = { onAccentSelected(accent) },
+                    modifier = Modifier.width(92.dp)
+                )
             }
         }
     }
@@ -602,15 +549,19 @@ private fun AccentSwatch(
     Column(
         modifier = modifier
             .clip(MaterialTheme.shapes.medium)
+            .background(
+                if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                MaterialTheme.shapes.medium
+            )
             .border(BorderStroke(if (selected) 1.5.dp else 1.dp, borderColor), MaterialTheme.shapes.medium)
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 10.dp),
+            .padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(30.dp)
+                .size(32.dp)
                 .clip(CircleShape)
                 .background(accent.previewBrush)
                 .border(

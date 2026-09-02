@@ -18,7 +18,6 @@ import androidx.compose.ui.graphics.Color
 @Composable
 fun GlassBackdropHost(
     modifier: Modifier = Modifier,
-    glassEffectEnabled: Boolean = true,
     content: @Composable BoxScope.(GlassBackdrop) -> Unit
 ) {
     val backdrop = rememberGlassBackdrop()
@@ -30,15 +29,9 @@ fun GlassBackdropHost(
             modifier = Modifier
                 .fillMaxSize()
                 .background(glassBackgroundColor())
-                .then(
-                    if (glassEffectEnabled) {
-                        Modifier.glassBackdropLayer(backdrop)
-                    } else {
-                        Modifier
-                    }
-                )
+                .glassBackdropLayer(backdrop)
         )
-        CompositionLocalProvider(LocalGlassEffectEnabled provides glassEffectEnabled) {
+        CompositionLocalProvider(LocalGlassEffectEnabled provides true) {
             content(backdrop)
         }
     }

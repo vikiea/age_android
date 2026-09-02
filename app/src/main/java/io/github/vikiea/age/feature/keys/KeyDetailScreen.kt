@@ -30,7 +30,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -62,7 +61,8 @@ import io.github.vikiea.age.ui.glass.GlassDialog
 import io.github.vikiea.age.ui.glass.GlassStatusPanel
 import io.github.vikiea.age.ui.glass.GlassTextButton
 import io.github.vikiea.age.ui.glass.GlassTextField
-import io.github.vikiea.age.ui.glass.GlassTopBar
+import io.github.vikiea.age.ui.glass.AppTopBar
+import io.github.vikiea.age.ui.glass.TopBarActionButton
 import io.github.vikiea.age.ui.glass.GlassTonalSurface
 import io.github.vikiea.age.ui.glass.StatusTone
 import java.text.SimpleDateFormat
@@ -127,13 +127,14 @@ fun KeyDetailScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        GlassTopBar(
-            title = key?.name ?: stringResource(R.string.key_detail),
-            backdrop = backdrop,
+        AppTopBar(
             navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                }
+                TopBarActionButton(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.common_back),
+                    onClick = onBack,
+                    backdrop = backdrop
+                )
             }
         )
 
@@ -193,7 +194,6 @@ fun KeyDetailScreen(
                             Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.common_rename), modifier = Modifier.size(18.dp))
                         }
                     }
-                    HorizontalDivider()
                     InfoRow(stringResource(R.string.key_type), if (key.ageKeyType == io.github.vikiea.age.core.model.AgeKeyType.POST_QUANTUM) "ML-KEM-768 + X25519" else "X25519")
                     InfoRow(stringResource(R.string.has_private_key), stringResource(if (key.hasPrivateKey) R.string.common_yes else R.string.common_no))
                     InfoRow(
@@ -208,7 +208,6 @@ fun KeyDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                         SectionTitle(stringResource(R.string.private_key))
-                        HorizontalDivider()
                         if (privateKeyMaterial != null) {
                             Row(verticalAlignment = Alignment.Top) {
                                 Text(
@@ -248,7 +247,6 @@ fun KeyDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                     SectionTitle(stringResource(R.string.common_export))
-                    HorizontalDivider()
                     GlassButton(
                         onClick = {
                             if (key.hasPrivateKey && canAuthenticate) authenticate { viewModel.prepareExport(key, true) }
@@ -320,7 +318,6 @@ private fun KeyTextSection(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
             SectionTitle(title)
-            HorizontalDivider()
             Row(verticalAlignment = Alignment.Top) {
                 Text(
                     text = value,

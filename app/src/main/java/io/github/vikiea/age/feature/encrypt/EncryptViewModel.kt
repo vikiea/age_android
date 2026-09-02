@@ -33,6 +33,9 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import java.io.File
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 
@@ -47,11 +50,11 @@ data class FileItem(
 data class EncryptUiState(
     val mode: EncryptMode = EncryptMode.BATCH_PACK,
     val files: List<FileItem> = emptyList(),
-    val usePassphrase: Boolean = true,
+    val usePassphrase: Boolean = false,
     val passphrase: String = "",
     val selectedPublicKey: String = "",
-    val outputFileBaseName: String = "archive",
-    val outputFileName: String = "archive.tar.gz.age",
+    val outputFileBaseName: String = defaultArchiveBaseName(),
+    val outputFileName: String = "$outputFileBaseName.tar.gz.age",
     val compressEnabled: Boolean = true,
     val isProcessing: Boolean = false,
     val progress: Float = 0f,
@@ -96,7 +99,7 @@ class EncryptViewModel @Inject constructor(
             val savedPublicKey = settingsDataStore.getSelectedPublicKeyOnce()
             val savedCompress = settingsDataStore.getCompressEnabledOnce()
             _uiState.update {
-                val baseName = "archive"
+                val baseName = it.outputFileBaseName
                 it.copy(
                     mode = when (savedMode) {
                         "SEPARATE" -> EncryptMode.SEPARATE
@@ -465,6 +468,12 @@ class EncryptViewModel @Inject constructor(
         }
     }
 }
+
+private val ArchiveNameFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss", Locale.US)
+
+internal fun defaultArchiveBaseName(dateTime: LocalDateTime = LocalDateTime.now()): String =
+    "archive-${dateTime.format(ArchiveNameFormatter)}"
 
 private fun recipientHint(recipient: String): String =
     "${if (recipient.startsWith("age1pq1")) "PQ" else "X25519"} ·${recipient.takeLast(8)}"

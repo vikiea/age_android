@@ -49,11 +49,8 @@ class SettingsViewModelTest {
             every { concurrency } returns flowOf(4)
             every { themeMode } returns flowOf(ThemeMode.SYSTEM)
             every { themeAccent } returns flowOf(ThemeAccent.LIQUID_DEFAULT)
-            every { glassEffectEnabled } returns flowOf(true)
-            every { dynamicColorEnabled } returns flowOf(false)
             every { appLanguage } returns flowOf(AppLanguage.SYSTEM)
             coEvery { setThemeAccent(any()) } just runs
-            coEvery { setGlassEffectEnabled(any()) } just runs
         }
         val fileHelper = mockk<FileHelper>()
         updateChecker = mockk {
@@ -199,11 +196,4 @@ class SettingsViewModelTest {
         coVerify { settingsDataStore.setThemeAccent(ThemeAccent.SOLID_BLUE) }
     }
 
-    @Test
-    fun `setGlassEffectEnabled persists selected glass effect preference`() = runTest(testDispatcher) {
-        viewModel.setGlassEffectEnabled(false)
-        advanceUntilIdle()
-
-        coVerify { settingsDataStore.setGlassEffectEnabled(false) }
-    }
 }

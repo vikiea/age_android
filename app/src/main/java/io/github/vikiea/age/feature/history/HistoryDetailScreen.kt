@@ -18,7 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,7 +47,8 @@ import io.github.vikiea.age.core.model.RecordedDuplicateStrategy
 import io.github.vikiea.age.ui.components.FilePathTreeView
 import io.github.vikiea.age.ui.glass.GlassBackdrop
 import io.github.vikiea.age.ui.glass.GlassTextButton
-import io.github.vikiea.age.ui.glass.GlassTopBar
+import io.github.vikiea.age.ui.glass.AppTopBar
+import io.github.vikiea.age.ui.glass.TopBarActionButton
 import io.github.vikiea.age.ui.glass.GlassTonalSurface
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -65,18 +65,23 @@ fun HistoryDetailScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        GlassTopBar(
-            title = stringResource(R.string.operation_detail),
-            backdrop = backdrop,
+        AppTopBar(
             navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                }
+                TopBarActionButton(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.common_back),
+                    onClick = onBack,
+                    backdrop = backdrop
+                )
             },
             actions = {
-                IconButton(onClick = { showDeleteDialog = true }) {
-                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.common_delete))
-                }
+                TopBarActionButton(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = stringResource(R.string.common_delete),
+                    onClick = { showDeleteDialog = true },
+                    backdrop = backdrop,
+                    tint = MaterialTheme.colorScheme.error
+                )
             }
         )
 
@@ -245,7 +250,6 @@ private fun FileInfoSection(
                 FilePathTreeView(paths = op.inputFiles)
             }
         }
-        HorizontalDivider()
         Text(
             stringResource(R.string.output_files),
             style = MaterialTheme.typography.bodySmall,
@@ -289,7 +293,6 @@ private fun DetailSection(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         SectionTitle(title)
-        HorizontalDivider()
         content()
     }
 }

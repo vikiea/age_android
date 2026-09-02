@@ -72,17 +72,18 @@ class KeysViewModel @Inject constructor(
     fun setImportPrivateKey(value: String) { _uiState.update { it.copy(importPrivateKey = value) } }
     fun setRenameText(value: String) { _uiState.update { it.copy(renameText = value) } }
 
-    fun showGenerateDialog() { _uiState.update { it.copy(showGenerateDialog = true, newName = "", newKeyType = AgeKeyType.POST_QUANTUM, error = null, tip = null) } }
-    fun hideGenerateDialog() { _uiState.update { it.copy(showGenerateDialog = false) } }
-    fun showImportDialog() { parsedFileKeys = emptyList(); _uiState.update { it.copy(showImportDialog = true, importName = "", importPublicKey = "", importPrivateKey = "", importFileUri = null, error = null, tip = null) } }
-    fun hideImportDialog() { parsedFileKeys = emptyList(); _uiState.update { it.copy(showImportDialog = false, importFileUri = null, importPrivateKey = "") } }
+    fun showGenerateDialog() { _uiState.update { it.copy(showGenerateDialog = true, newName = "", newKeyType = AgeKeyType.POST_QUANTUM, error = null, success = null, tip = null) } }
+    fun hideGenerateDialog() { _uiState.update { it.copy(showGenerateDialog = false, error = null, success = null, tip = null) } }
+    fun showImportDialog() { parsedFileKeys = emptyList(); _uiState.update { it.copy(showImportDialog = true, importName = "", importPublicKey = "", importPrivateKey = "", importFileUri = null, error = null, success = null, tip = null) } }
+    fun hideImportDialog() { parsedFileKeys = emptyList(); _uiState.update { it.copy(showImportDialog = false, importFileUri = null, importPrivateKey = "", error = null, success = null, tip = null) } }
     fun clearMessages() { _uiState.update { it.copy(error = null, success = null) } }
     fun clearTip() { _uiState.update { it.copy(tip = null) } }
+    fun clearAllNotices() { _uiState.update { it.copy(error = null, success = null, tip = null) } }
 
     fun showRenameDialog(key: KeyEntry) {
-        _uiState.update { it.copy(showRenameDialog = true, renameTargetId = key.id, renameText = key.name, error = null) }
+        _uiState.update { it.copy(showRenameDialog = true, renameTargetId = key.id, renameText = key.name, error = null, success = null, tip = null) }
     }
-    fun hideRenameDialog() { _uiState.update { it.copy(showRenameDialog = false) } }
+    fun hideRenameDialog() { _uiState.update { it.copy(showRenameDialog = false, error = null, success = null, tip = null) } }
 
     fun renameKey() {
         val state = _uiState.value

@@ -73,6 +73,11 @@ class DecryptViewModelTest {
     }
 
     @Test
+    fun `initial authentication defaults to key`() {
+        assertFalse(viewModel.uiState.value.usePassphrase)
+    }
+
+    @Test
     fun `idle empty state hides action footer`() {
         assertFalse(viewModel.uiState.value.shouldShowActionFooter)
     }
@@ -149,6 +154,7 @@ class DecryptViewModelTest {
         }
 
         viewModel.addFiles(listOf(uri))
+        viewModel.setUsePassphrase(true)
         viewModel.setPassphrase("pw")
 
         viewModel.startDecrypt()

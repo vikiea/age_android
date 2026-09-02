@@ -47,7 +47,7 @@ data class DecryptFileItem(
 
 data class DecryptUiState(
     val files: List<DecryptFileItem> = emptyList(),
-    val usePassphrase: Boolean = true,
+    val usePassphrase: Boolean = false,
     val passphrase: String = "",
     val selectedPrivateKeyId: Long? = null,
     val isProcessing: Boolean = false,

@@ -69,12 +69,6 @@ class SettingsViewModel @Inject constructor(
     val themeAccent: StateFlow<ThemeAccent> = settingsDataStore.themeAccent
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ThemeAccent.LIQUID_DEFAULT)
 
-    val glassEffectEnabled: StateFlow<Boolean> = settingsDataStore.glassEffectEnabled
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
-
-    val dynamicColorEnabled: StateFlow<Boolean> = settingsDataStore.dynamicColorEnabled
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
     val appLanguage: StateFlow<AppLanguage> = settingsDataStore.appLanguage
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppLanguage.SYSTEM)
 
@@ -243,16 +237,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             settingsDataStore.setThemeAccent(accent)
         }
-    }
-
-    fun setGlassEffectEnabled(value: Boolean) {
-        viewModelScope.launch {
-            settingsDataStore.setGlassEffectEnabled(value)
-        }
-    }
-
-    fun setDynamicColorEnabled(value: Boolean) {
-        viewModelScope.launch { settingsDataStore.setDynamicColorEnabled(value) }
     }
 
     fun setAppLanguage(value: AppLanguage) {

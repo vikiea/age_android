@@ -11,20 +11,22 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.fragment.app.FragmentActivity
+import androidx.compose.ui.Modifier
+import androidx.compose.material3.MaterialTheme
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.app.AppCompatDelegate
-import androidx.core.os.LocaleListCompat
-import androidx.compose.runtime.LaunchedEffect
 import io.github.vikiea.age.core.data.AppLanguage
 import io.github.vikiea.age.core.data.SettingsDataStore
 import io.github.vikiea.age.core.data.ThemeAccent
 import io.github.vikiea.age.core.data.ThemeMode
 import io.github.vikiea.age.navigation.AppNavigation
 import io.github.vikiea.age.ui.theme.AgeAndroidTheme
+import io.github.vikiea.age.ui.theme.ProvideAppLocale
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -43,28 +45,25 @@ class MainActivity : AppCompatActivity() {
         setContent {
             val themeMode by settingsDataStore.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
             val themeAccent by settingsDataStore.themeAccent.collectAsState(initial = ThemeAccent.LIQUID_DEFAULT)
-            val glassEffectEnabled by settingsDataStore.glassEffectEnabled.collectAsState(initial = true)
-            val dynamicColorEnabled by settingsDataStore.dynamicColorEnabled.collectAsState(initial = false)
-            val appLanguage by settingsDataStore.appLanguage.collectAsState(initial = AppLanguage.SYSTEM)
-            LaunchedEffect(appLanguage) {
-                val tags = when (appLanguage) {
-                    AppLanguage.SYSTEM -> ""
-                    AppLanguage.ZH_CN -> "zh-CN"
-                    AppLanguage.ENGLISH -> "en"
-                }
-                AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(tags))
-            }
+            val appLanguage by settingsDataStore.appLanguage.collectAsState(initial = null)
             AgeAndroidTheme(
                 themeMode = themeMode,
-                themeAccent = themeAccent,
-                glassEffectEnabled = glassEffectEnabled,
-                dynamicColor = dynamicColorEnabled
+                themeAccent = themeAccent
             ) {
-                AppNavigation(
-                    sharedUris = sharedUris.value,
-                    onSharedUrisConsumed = { sharedUris.value = null },
-                    glassEffectEnabled = glassEffectEnabled
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                ) {
+                    appLanguage?.let { language ->
+                        ProvideAppLocale(language) {
+                            AppNavigation(
+                                sharedUris = sharedUris.value,
+                                onSharedUrisConsumed = { sharedUris.value = null }
+                            )
+                        }
+                    }
+                }
             }
         }
     }

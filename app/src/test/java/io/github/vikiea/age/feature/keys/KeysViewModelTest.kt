@@ -43,6 +43,7 @@ class KeysViewModelTest {
         viewModel = KeysViewModel(
             context = mockk<Context>(relaxed = true) {
                 every { getString(R.string.key_imported) } returns "密钥已导入"
+                every { getString(R.string.error_name_required) } returns "请输入名称"
             },
             keyRepository = keyRepository,
             ageEngine = ageEngine
@@ -68,5 +69,19 @@ class KeysViewModelTest {
         assertEquals("密钥已导入", viewModel.uiState.value.tip)
         assertNull(viewModel.uiState.value.success)
         coVerify { keyRepository.importKey("work", "age1public", null, AgeKeyType.X25519) }
+    }
+
+    @Test
+    fun `closing import dialog clears its error instead of showing it on page`() {
+        viewModel.showImportDialog()
+        viewModel.importKey()
+        assertEquals("请输入名称", viewModel.uiState.value.error)
+
+        viewModel.hideImportDialog()
+
+        assertFalse(viewModel.uiState.value.showImportDialog)
+        assertNull(viewModel.uiState.value.error)
+        assertNull(viewModel.uiState.value.tip)
+        assertNull(viewModel.uiState.value.success)
     }
 }

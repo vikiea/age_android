@@ -5,24 +5,24 @@
  */
 package io.github.vikiea.age.ui.glass
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,14 +35,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun GlassTopBar(
-    title: String,
+fun AppTopBar(
     modifier: Modifier = Modifier,
-    backdrop: GlassBackdrop? = null,
     navigationIcon: @Composable (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
@@ -51,23 +48,65 @@ fun GlassTopBar(
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 10.dp)
-            .heightIn(min = 52.dp),
+            .padding(horizontal = 16.dp)
+            .height(56.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         CompositionLocalProvider(LocalContentColor provides contentColor) {
             navigationIcon?.invoke()
-            Text(
-                text = title,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 8.dp),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = contentColor,
-                maxLines = 1
-            )
+            Box(modifier = Modifier.weight(1f))
             actions()
+        }
+    }
+}
+
+@Composable
+fun TopBarActionButton(
+    imageVector: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    backdrop: GlassBackdrop? = null,
+    enabled: Boolean = true,
+    tint: Color = LocalContentColor.current
+) {
+    val glassEffectEnabled = LocalGlassEffectEnabled.current
+    val resolvedTint = if (enabled) {
+        tint
+    } else {
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    }
+    IconButton(
+        onClick = onClick,
+        modifier = modifier.size(48.dp),
+        enabled = enabled
+    ) {
+        if (glassEffectEnabled) {
+            GlassSurface(
+                modifier = Modifier.size(40.dp),
+                backdrop = backdrop,
+                shape = CircleShape,
+                emphasis = GlassEmphasis.Subtle
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = imageVector,
+                        contentDescription = contentDescription,
+                        modifier = Modifier.size(24.dp),
+                        tint = resolvedTint
+                    )
+                }
+            }
+        } else {
+            Icon(
+                imageVector = imageVector,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(24.dp),
+                tint = resolvedTint
+            )
         }
     }
 }
@@ -109,7 +148,7 @@ fun GlassBottomTabs(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         backdrop = backdrop,
         shape = GlassDefaults.NavShape,
         emphasis = GlassEmphasis.Strong
@@ -117,7 +156,7 @@ fun GlassBottomTabs(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
+                .padding(horizontal = 8.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -146,20 +185,11 @@ private fun RowScope.GlassTabButton(
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isDark) 0.78f else 0.82f)
     }
-    val indicatorColor = if (selected) {
-        if (isDark) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.86f)
-        } else {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.68f)
-        }
-    } else {
-        Color.Transparent
-    }
     CompositionLocalProvider(LocalContentColor provides contentColor) {
         Column(
             modifier = Modifier
                 .weight(1f)
-                .heightIn(min = 64.dp)
+                .heightIn(min = 62.dp)
                 .padding(horizontal = 2.dp)
                 .clip(shape)
                 .selectable(
@@ -167,19 +197,22 @@ private fun RowScope.GlassTabButton(
                     role = Role.Tab,
                     onClick = onClick
                 )
-                .padding(vertical = 8.dp, horizontal = 4.dp),
+                .padding(vertical = 6.dp, horizontal = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)
         ) {
-            Icon(item.icon, contentDescription = null)
-            Text(item.label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
             Box(
-                modifier = Modifier
-                    .padding(top = 4.dp)
-                    .width(18.dp)
-                    .height(3.dp)
-                    .background(indicatorColor, RoundedCornerShape(999.dp))
-            )
+                modifier = Modifier.size(38.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(23.dp),
+                    tint = contentColor
+                )
+            }
+            Text(item.label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
         }
     }
 }

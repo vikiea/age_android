@@ -8,6 +8,7 @@ package io.github.vikiea.age.feature.keys
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -20,55 +21,56 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import io.github.vikiea.age.R
 import io.github.vikiea.age.core.model.KeyEntry
 import io.github.vikiea.age.core.model.AgeKeyType
 import io.github.vikiea.age.ui.glass.GlassBackdrop
-import io.github.vikiea.age.ui.glass.GlassButton
 import io.github.vikiea.age.ui.glass.GlassDialog
 import io.github.vikiea.age.ui.glass.GlassFloatingActionButton
 import io.github.vikiea.age.ui.glass.GlassOutlinedButton
-import io.github.vikiea.age.ui.glass.GlassTextButton
 import io.github.vikiea.age.ui.glass.GlassTextField
-import io.github.vikiea.age.ui.glass.GlassTopBar
-import io.github.vikiea.age.ui.glass.GlassTonalSurface
-import io.github.vikiea.age.ui.glass.GlassStatusPanel
+import io.github.vikiea.age.ui.glass.AppTopBar
+import io.github.vikiea.age.ui.glass.AppNotice
+import io.github.vikiea.age.ui.glass.AppNoticeCard
+import io.github.vikiea.age.ui.glass.AppNoticeHost
+import io.github.vikiea.age.ui.glass.AppNoticeTone
 import io.github.vikiea.age.ui.glass.GlassSegmentOption
 import io.github.vikiea.age.ui.glass.GlassSegmentedControl
-import io.github.vikiea.age.ui.glass.StatusTone
 
 @Composable
 fun KeysScreen(
@@ -78,33 +80,41 @@ fun KeysScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val keys by viewModel.keys.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
     var selectedKeyId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     val keyFilePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.parseKeyFile(uri)
     }
 
-    LaunchedEffect(uiState.error, uiState.success) {
-        if (uiState.error != null || uiState.success != null) {
-            kotlinx.coroutines.delay(3000)
-            viewModel.clearMessages()
-        }
+    val activeNotice = when {
+        uiState.error != null -> AppNotice(
+            title = stringResource(R.string.common_operation_failed),
+            message = uiState.error.orEmpty(),
+            tone = AppNoticeTone.Error
+        )
+        uiState.success != null -> AppNotice(
+            title = stringResource(R.string.common_operation_complete),
+            message = uiState.success.orEmpty(),
+            tone = AppNoticeTone.Success
+        )
+        uiState.tip != null -> AppNotice(
+            title = stringResource(R.string.common_notice),
+            message = uiState.tip.orEmpty(),
+            tone = AppNoticeTone.Info
+        )
+        else -> null
     }
 
-    LaunchedEffect(uiState.tip) {
-        uiState.tip?.let { message ->
-            snackbarHostState.showSnackbar(
-                message = message,
-                duration = SnackbarDuration.Short
-            )
-            viewModel.clearTip()
+    LaunchedEffect(activeNotice?.message) {
+        if (activeNotice != null) {
+            kotlinx.coroutines.delay(4000)
+            viewModel.clearAllNotices()
         }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            GlassTopBar(title = stringResource(R.string.keys_title), backdrop = backdrop)
+            AppTopBar()
 
             Column(
                 modifier = Modifier
@@ -113,26 +123,6 @@ fun KeysScreen(
                     .padding(bottom = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                uiState.error?.let { message ->
-                    GlassStatusPanel(
-                        title = stringResource(R.string.common_operation_failed),
-                        tone = StatusTone.Error,
-                        onDismiss = { viewModel.clearMessages() }
-                    ) {
-                        Text(message)
-                    }
-                }
-
-                uiState.success?.let { message ->
-                    GlassStatusPanel(
-                        title = stringResource(R.string.common_operation_complete),
-                        tone = StatusTone.Success,
-                        onDismiss = { viewModel.clearMessages() }
-                    ) {
-                        Text(message)
-                    }
-                }
-
                 BoxWithConstraints(modifier = Modifier.weight(1f)) {
                     val isWide = maxWidth >= 840.dp
                     val selected = keys.firstOrNull { it.id == selectedKeyId } ?: keys.firstOrNull()
@@ -153,39 +143,40 @@ fun KeysScreen(
             }
         }
 
-        SnackbarHost(
-            hostState = snackbarHostState,
+        AppNoticeHost(
+            notice = activeNotice.takeUnless {
+                uiState.showGenerateDialog || uiState.showImportDialog || uiState.showRenameDialog
+            },
+            onDismiss = viewModel::clearAllNotices,
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 28.dp)
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 68.dp)
+                .zIndex(2f)
         )
 
-        Column(
+        Row(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp),
-            horizontalAlignment = Alignment.End,
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             GlassFloatingActionButton(
                 onClick = { viewModel.showImportDialog() },
                 backdrop = backdrop,
-                size = 60.dp,
+                size = 52.dp,
                 contentDescription = stringResource(R.string.import_key)
             ) {
-                Icon(Icons.Default.FileUpload, contentDescription = stringResource(R.string.common_import))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.common_import))
+                Icon(Icons.Default.FileUpload, contentDescription = null)
             }
             GlassFloatingActionButton(
                 onClick = { viewModel.showGenerateDialog() },
                 backdrop = backdrop,
-                size = 64.dp,
+                size = 56.dp,
                 contentDescription = stringResource(R.string.generate_new_key)
             ) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.common_generate))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.generate_key))
+                Icon(Icons.Default.Add, contentDescription = null)
             }
         }
     }
@@ -197,11 +188,10 @@ fun KeysScreen(
             onDismissRequest = { viewModel.hideGenerateDialog() },
             backdrop = backdrop,
             actions = {
-                GlassTextButton(onClick = { viewModel.hideGenerateDialog() }) {
+                TextButton(onClick = { viewModel.hideGenerateDialog() }) {
                     Text(stringResource(R.string.common_cancel))
                 }
-                Spacer(Modifier.width(8.dp))
-                GlassButton(
+                Button(
                     onClick = { viewModel.generateKey() },
                     enabled = !uiState.isGenerating
                 ) {
@@ -217,6 +207,17 @@ fun KeysScreen(
                 }
             }
         ) {
+            uiState.error?.let { message ->
+                AppNoticeCard(
+                    notice = AppNotice(
+                        title = stringResource(R.string.common_operation_failed),
+                        message = message,
+                        tone = AppNoticeTone.Error
+                    ),
+                    onDismiss = viewModel::clearAllNotices,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             GlassTextField(
                 value = uiState.newName,
                 onValueChange = { viewModel.setNewName(it) },
@@ -248,17 +249,27 @@ fun KeysScreen(
             onDismissRequest = { viewModel.hideImportDialog() },
             backdrop = backdrop,
             actions = {
-                GlassTextButton(onClick = { viewModel.hideImportDialog() }) {
+                TextButton(onClick = { viewModel.hideImportDialog() }) {
                     Text(stringResource(R.string.common_cancel))
                 }
-                Spacer(Modifier.width(8.dp))
-                GlassButton(onClick = { viewModel.importKey() }) {
+                Button(onClick = { viewModel.importKey() }) {
                     Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.common_import))
                 }
             }
         ) {
+            uiState.error?.let { message ->
+                AppNoticeCard(
+                    notice = AppNotice(
+                        title = stringResource(R.string.common_operation_failed),
+                        message = message,
+                        tone = AppNoticeTone.Error
+                    ),
+                    onDismiss = viewModel::clearAllNotices,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             GlassTextField(
                 value = uiState.importName,
                 onValueChange = { viewModel.setImportName(it) },
@@ -280,8 +291,6 @@ fun KeysScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
-
-            HorizontalDivider()
 
             GlassOutlinedButton(
                 onClick = { keyFilePicker.launch(arrayOf("text/plain", "*/*")) },
@@ -313,15 +322,25 @@ fun KeysScreen(
             onDismissRequest = { viewModel.hideRenameDialog() },
             backdrop = backdrop,
             actions = {
-                GlassTextButton(onClick = { viewModel.hideRenameDialog() }) {
+                TextButton(onClick = { viewModel.hideRenameDialog() }) {
                     Text(stringResource(R.string.common_cancel))
                 }
-                Spacer(Modifier.width(8.dp))
-                GlassButton(onClick = { viewModel.renameKey() }) {
+                Button(onClick = { viewModel.renameKey() }) {
                     Text(stringResource(R.string.common_confirm))
                 }
             }
         ) {
+            uiState.error?.let { message ->
+                AppNoticeCard(
+                    notice = AppNotice(
+                        title = stringResource(R.string.common_operation_failed),
+                        message = message,
+                        tone = AppNoticeTone.Error
+                    ),
+                    onDismiss = viewModel::clearAllNotices,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
             GlassTextField(
                 value = uiState.renameText,
                 onValueChange = { viewModel.setRenameText(it) },
@@ -343,7 +362,6 @@ private fun KeyList(
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle(stringResource(R.string.keyring))
-        HorizontalDivider()
         if (keys.isEmpty()) {
             Text(
                 text = stringResource(R.string.no_keys),
@@ -354,16 +372,21 @@ private fun KeyList(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
-                items(keys, key = { it.id }) { key ->
+                itemsIndexed(keys, key = { _, key -> key.id }) { index, key ->
                     KeyRow(
                         key = key,
                         onClick = { onClick(key) },
                         onRename = { onRename(key) },
                         onDelete = { onDelete(key) }
                     )
+                    if (index < keys.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 56.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                    }
                 }
             }
         }
@@ -374,7 +397,6 @@ private fun KeyList(
 private fun KeyPreview(key: KeyEntry?, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier = modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionTitle(stringResource(R.string.key_detail))
-        HorizontalDivider()
         if (key == null) {
             Text(stringResource(R.string.no_keys), color = MaterialTheme.colorScheme.onSurfaceVariant)
             return@Column
@@ -399,42 +421,54 @@ private fun KeyRow(
     onRename: () -> Unit,
     onDelete: () -> Unit
 ) {
-    GlassTonalSurface(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .size(40.dp)
+                .clip(MaterialTheme.shapes.medium)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = key.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "${key.publicKey.take(18)}… · ${if (key.ageKeyType == AgeKeyType.POST_QUANTUM) "PQ" else "X25519"}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            Icon(
+                Icons.Default.Key,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                text = key.name,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "${key.publicKey.take(18)}… · ${if (key.ageKeyType == AgeKeyType.POST_QUANTUM) "PQ" else "X25519"}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Row {
+            IconButton(onClick = onRename, modifier = Modifier.size(40.dp)) {
+                Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.common_rename))
             }
-            Row {
-                IconButton(onClick = onRename, modifier = Modifier.size(40.dp)) {
-                    Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.common_rename))
-                }
-                IconButton(onClick = onDelete, modifier = Modifier.size(40.dp)) {
-                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.common_delete))
-                }
+            IconButton(onClick = onDelete, modifier = Modifier.size(40.dp)) {
+                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.common_delete))
             }
         }
     }

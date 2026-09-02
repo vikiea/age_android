@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -57,12 +59,13 @@ fun GlassSurface(
     shape: Shape = GlassDefaults.PanelShape,
     emphasis: GlassEmphasis = GlassEmphasis.Normal,
     useRealBackdrop: Boolean = true,
+    showBorder: Boolean = true,
     content: @Composable BoxScope.() -> Unit
 ) {
     val backdropTint = GlassDefaults.glassBackdropTint(emphasis)
     val sheenBrush = GlassDefaults.glassSheenBrush(emphasis)
     val contentColor = GlassDefaults.glassContentColor()
-    val border = GlassDefaults.glassBorder(emphasis)
+    val border = if (showBorder) GlassDefaults.glassBorder(emphasis) else null
     val glassEffectEnabled = LocalGlassEffectEnabled.current
     val shouldUseBackdrop = glassEffectEnabled && useRealBackdrop && backdrop != null && GlassDefaults.realBackdropEnabled
     val shadowElevation = GlassDefaults.shadowElevation(emphasis)
@@ -87,18 +90,18 @@ fun GlassSurface(
                             lens(refractionHeight = 10f, refractionAmount = 36f)
                         }
                     },
-                    highlight = { Highlight.Default.copy(alpha = 0.78f) },
+                    highlight = { Highlight.Default.copy(alpha = 0.46f) },
                     shadow = {
                         Shadow.Default.copy(
                             radius = when (emphasis) {
-                                GlassEmphasis.Subtle -> 22.dp
-                                GlassEmphasis.Normal -> 36.dp
-                                GlassEmphasis.Strong -> 52.dp
+                                GlassEmphasis.Subtle -> 14.dp
+                                GlassEmphasis.Normal -> 22.dp
+                                GlassEmphasis.Strong -> 30.dp
                             },
                             alpha = when (emphasis) {
-                                GlassEmphasis.Subtle -> 0.44f
-                                GlassEmphasis.Normal -> 0.68f
-                                GlassEmphasis.Strong -> 0.82f
+                                GlassEmphasis.Subtle -> 0.16f
+                                GlassEmphasis.Normal -> 0.22f
+                                GlassEmphasis.Strong -> 0.28f
                             }
                         )
                     },
@@ -158,38 +161,20 @@ fun GlassCard(
 @Composable
 fun GlassTonalSurface(
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(14.dp),
-    containerColor: Color = GlassDefaults.glassContainerColor(GlassEmphasis.Subtle),
-    border: BorderStroke? = GlassDefaults.glassBorder(GlassEmphasis.Subtle),
+    shape: Shape = RoundedCornerShape(12.dp),
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLow,
+    border: BorderStroke? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val contentColor = GlassDefaults.glassContentColor()
-    val sheenBrush = GlassDefaults.glassSheenBrush(GlassEmphasis.Subtle)
-    val glassEffectEnabled = LocalGlassEffectEnabled.current
-    val shadowModifier = modifier.shadow(
-        elevation = if (glassEffectEnabled) 10.dp else 0.dp,
+    Surface(
+        modifier = modifier,
         shape = shape,
-        ambientColor = GlassDefaults.glassShadowAmbientColor(GlassEmphasis.Subtle),
-        spotColor = GlassDefaults.glassShadowSpotColor(GlassEmphasis.Subtle)
-    )
-    val surfaceModifier = if (border != null) {
-        shadowModifier
-            .background(containerColor, shape)
-            .clip(shape)
-            .then(if (glassEffectEnabled) Modifier.glassSheen(sheenBrush) else Modifier)
-            .border(border, shape)
-    } else {
-        shadowModifier
-            .background(containerColor, shape)
-            .clip(shape)
-            .then(if (glassEffectEnabled) Modifier.glassSheen(sheenBrush) else Modifier)
-    }
-    Box(
-        modifier = surfaceModifier,
+        color = containerColor,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        border = border,
+        tonalElevation = 0.dp
     ) {
-        CompositionLocalProvider(LocalContentColor provides contentColor) {
-            content()
-        }
+        Box(content = content)
     }
 }
 

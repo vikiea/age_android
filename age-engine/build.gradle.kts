@@ -1,9 +1,6 @@
 plugins {
     id("com.android.library")
-    id("org.jetbrains.kotlin.android")
 }
-
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 android {
     namespace = "io.github.vikiea.age.engine"
@@ -22,12 +19,6 @@ android {
         jniLibs {
             keepDebugSymbols += "**/libgojni.so"
         }
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_11)
     }
 }
 

@@ -41,7 +41,8 @@ import io.github.vikiea.age.ui.glass.GlassSegmentedControl
 import io.github.vikiea.age.ui.glass.GlassStatusPanel
 import io.github.vikiea.age.ui.glass.GlassTextButton
 import io.github.vikiea.age.ui.glass.GlassTextField
-import io.github.vikiea.age.ui.glass.GlassTopBar
+import io.github.vikiea.age.ui.glass.AppTopBar
+import io.github.vikiea.age.ui.glass.TopBarActionButton
 import io.github.vikiea.age.ui.glass.GlassTonalSurface
 import io.github.vikiea.age.ui.glass.StatusTone
 
@@ -74,13 +75,14 @@ fun DecryptScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        GlassTopBar(
-            title = stringResource(R.string.decrypt_title),
-            backdrop = backdrop,
+        AppTopBar(
             actions = {
-                IconButton(onClick = onNavigateToSettings) {
-                    Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title))
-                }
+                TopBarActionButton(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = stringResource(R.string.settings_title),
+                    onClick = onNavigateToSettings,
+                    backdrop = backdrop
+                )
             }
         )
 
@@ -137,7 +139,6 @@ fun DecryptScreen(
                     }
                 }
             }
-            HorizontalDivider()
             Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionTitle(stringResource(R.string.decryption_method))
                 GlassSegmentedControl(

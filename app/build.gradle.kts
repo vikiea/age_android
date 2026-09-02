@@ -1,10 +1,8 @@
 import java.util.Properties
 import org.gradle.api.tasks.testing.Test
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
@@ -23,8 +21,8 @@ android {
         applicationId = "io.github.vikiea.age"
         minSdk = 26
         targetSdk = 36
-        versionCode = 16
-        versionName = "5.0.1"
+        versionCode = 17
+        versionName = "5.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -95,13 +93,6 @@ android {
             "NewerVersionAvailable",
             "ObsoleteSdkInt"
         )
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_11)
-        freeCompilerArgs.add("-Xannotation-default-target=param-property")
     }
 }
 
