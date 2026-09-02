@@ -31,17 +31,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import io.github.vikiea.age.R
+import io.github.vikiea.age.core.model.CompressionState
+import io.github.vikiea.age.core.model.EncryptMode
+import io.github.vikiea.age.core.model.OperationAuthMethod
 import io.github.vikiea.age.core.model.OperationRecord
 import io.github.vikiea.age.core.model.OperationStatus
 import io.github.vikiea.age.core.model.OperationType
+import io.github.vikiea.age.core.model.RecordedDuplicateStrategy
 import io.github.vikiea.age.ui.components.FilePathTreeView
 import io.github.vikiea.age.ui.glass.GlassBackdrop
-import io.github.vikiea.age.ui.glass.GlassEmphasis
-import io.github.vikiea.age.ui.glass.GlassSurface
 import io.github.vikiea.age.ui.glass.GlassTextButton
 import io.github.vikiea.age.ui.glass.GlassTopBar
 import io.github.vikiea.age.ui.glass.GlassTonalSurface
@@ -56,33 +61,32 @@ fun HistoryDetailScreen(
     backdrop: GlassBackdrop? = null
 ) {
     val operation by viewModel.operation.collectAsState()
+    val locale = LocalConfiguration.current.locales[0]
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         GlassTopBar(
-            title = "操作详情",
+            title = stringResource(R.string.operation_detail),
             backdrop = backdrop,
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                 }
             },
             actions = {
                 IconButton(onClick = { showDeleteDialog = true }) {
-                    Icon(Icons.Default.Delete, contentDescription = "删除")
+                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.common_delete))
                 }
             }
         )
 
         if (operation == null) {
-            GlassSurface(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                backdrop = backdrop,
-                emphasis = GlassEmphasis.Normal
             ) {
-                Text("记录未找到", modifier = Modifier.padding(16.dp))
+                Text(stringResource(R.string.record_not_found), modifier = Modifier.padding(16.dp))
             }
             return@Column
         }
@@ -99,28 +103,22 @@ fun HistoryDetailScreen(
         ) {
             OperationInfoSection(op, backdrop)
             FileInfoSection(op, backdrop)
-            DetailSection(title = "加密信息", backdrop = backdrop) {
-                InfoRow("加密方式", op.recipientInfo)
+            DetailSection(title = stringResource(R.string.encryption_info), backdrop = backdrop) {
+                InfoRow(stringResource(R.string.encryption_method_detail), authMethodLabel(op.authMethod))
             }
             if (op.status == OperationStatus.FAILED && !op.errorMessage.isNullOrBlank()) {
-                GlassSurface(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    backdrop = backdrop,
-                    emphasis = GlassEmphasis.Strong
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        SectionTitle("错误信息", color = MaterialTheme.colorScheme.error)
+                        SectionTitle(stringResource(R.string.error_info), color = MaterialTheme.colorScheme.error)
                         Text(op.errorMessage, color = MaterialTheme.colorScheme.error)
-                    }
                 }
             }
-            DetailSection(title = "时间信息", backdrop = backdrop) {
+            DetailSection(title = stringResource(R.string.time_info), backdrop = backdrop) {
                 InfoRow(
-                    "操作时间",
-                    SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(op.timestamp)
+                    stringResource(R.string.operation_time),
+                    SimpleDateFormat("yyyy-MM-dd HH:mm:ss", locale).format(op.timestamp)
                 )
             }
         }
@@ -129,16 +127,16 @@ fun HistoryDetailScreen(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("删除记录") },
-            text = { Text("确定要删除此操作记录吗？此操作不可撤销。") },
+            title = { Text(stringResource(R.string.delete_record)) },
+            text = { Text(stringResource(R.string.delete_record_confirm)) },
             confirmButton = {
                 GlassTextButton(onClick = {
                     showDeleteDialog = false
                     viewModel.deleteOperation { onBack() }
-                }) { Text("删除") }
+                }) { Text(stringResource(R.string.common_delete)) }
             },
             dismissButton = {
-                GlassTextButton(onClick = { showDeleteDialog = false }) { Text("取消") }
+                GlassTextButton(onClick = { showDeleteDialog = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -149,22 +147,35 @@ private fun OperationInfoSection(
     op: OperationRecord,
     backdrop: GlassBackdrop?
 ) {
-    DetailSection(title = "操作信息", backdrop = backdrop) {
-        InfoRow("类型", if (op.type == OperationType.ENCRYPT) "加密" else "解密")
-        InfoRow("模式", op.mode.name)
+    DetailSection(title = stringResource(R.string.operation_info), backdrop = backdrop) {
+        InfoRow(stringResource(R.string.type), stringResource(if (op.type == OperationType.ENCRYPT) R.string.nav_encrypt else R.string.nav_decrypt))
+        InfoRow(stringResource(R.string.mode), modeLabel(op.mode))
+        InfoRow(stringResource(R.string.auth_method), authMethodLabel(op.authMethod))
+        InfoRow(
+            stringResource(R.string.key_hint),
+            when {
+                op.keyHint.isNotBlank() -> op.keyHint
+                op.authMethod == OperationAuthMethod.PASSPHRASE -> stringResource(R.string.common_not_applicable)
+                else -> stringResource(R.string.common_unknown)
+            }
+        )
+        InfoRow(stringResource(R.string.compression), compressionLabel(op.compression))
+        InfoRow(stringResource(R.string.duplicate_strategy), duplicateStrategyLabel(op.duplicateStrategy))
+        InfoRow(stringResource(R.string.concurrency), op.concurrency.toString())
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "状态",
+                stringResource(R.string.status),
                 modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             val (color, label) = when (op.status) {
-                OperationStatus.SUCCESS -> MaterialTheme.colorScheme.primary to "成功"
-                OperationStatus.FAILED -> MaterialTheme.colorScheme.error to "失败"
-                OperationStatus.RUNNING -> MaterialTheme.colorScheme.outline to "进行中"
+                OperationStatus.SUCCESS -> MaterialTheme.colorScheme.primary to stringResource(R.string.status_success)
+                OperationStatus.FAILED -> MaterialTheme.colorScheme.error to stringResource(R.string.status_failed)
+                OperationStatus.RUNNING -> MaterialTheme.colorScheme.outline to stringResource(R.string.status_running)
+                OperationStatus.CANCELLED -> MaterialTheme.colorScheme.tertiary to stringResource(R.string.status_cancelled)
             }
             GlassTonalSurface {
                 Text(
@@ -179,13 +190,50 @@ private fun OperationInfoSection(
 }
 
 @Composable
+private fun modeLabel(mode: EncryptMode): String = stringResource(
+    when (mode) {
+        EncryptMode.BATCH_PACK -> R.string.mode_pack
+        EncryptMode.SEPARATE -> R.string.mode_separate
+        EncryptMode.DECRYPT -> R.string.mode_decrypt
+    }
+)
+
+@Composable
+private fun authMethodLabel(method: OperationAuthMethod): String = stringResource(
+    when (method) {
+        OperationAuthMethod.UNKNOWN -> R.string.common_unknown
+        OperationAuthMethod.PASSPHRASE -> R.string.auth_passphrase
+        OperationAuthMethod.RECIPIENT -> R.string.auth_recipient
+        OperationAuthMethod.IDENTITY -> R.string.auth_identity
+    }
+)
+
+@Composable
+private fun compressionLabel(state: CompressionState): String = stringResource(
+    when (state) {
+        CompressionState.UNKNOWN -> R.string.common_unknown
+        CompressionState.ENABLED -> R.string.common_enabled
+        CompressionState.DISABLED -> R.string.common_disabled
+    }
+)
+
+@Composable
+private fun duplicateStrategyLabel(strategy: RecordedDuplicateStrategy): String = stringResource(
+    when (strategy) {
+        RecordedDuplicateStrategy.UNKNOWN -> R.string.common_unknown
+        RecordedDuplicateStrategy.RENAME -> R.string.duplicate_rename
+        RecordedDuplicateStrategy.OVERWRITE -> R.string.duplicate_overwrite
+    }
+)
+
+@Composable
 private fun FileInfoSection(
     op: OperationRecord,
     backdrop: GlassBackdrop?
 ) {
-    DetailSection(title = "文件信息", backdrop = backdrop) {
+    DetailSection(title = stringResource(R.string.file_info), backdrop = backdrop) {
         Text(
-            "输入文件",
+            stringResource(R.string.input_files),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -199,7 +247,7 @@ private fun FileInfoSection(
         }
         HorizontalDivider()
         Text(
-            "输出文件",
+            stringResource(R.string.output_files),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -213,7 +261,7 @@ private fun FileInfoSection(
                 }
             }
             Text(
-                "保存位置: ${op.outputPath}",
+                stringResource(R.string.saved_to, op.outputPath),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
@@ -236,19 +284,13 @@ private fun DetailSection(
     backdrop: GlassBackdrop?,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    GlassSurface(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        backdrop = backdrop,
-        emphasis = GlassEmphasis.Normal
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            content = {
-                SectionTitle(title)
-                content()
-            }
-        )
+        SectionTitle(title)
+        HorizontalDivider()
+        content()
     }
 }
 

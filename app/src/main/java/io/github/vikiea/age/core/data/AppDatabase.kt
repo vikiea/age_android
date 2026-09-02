@@ -11,7 +11,7 @@ import androidx.room.TypeConverters
 import io.github.vikiea.age.core.model.KeyEntry
 import io.github.vikiea.age.core.model.OperationRecord
 
-@Database(entities = [KeyEntry::class, OperationRecord::class], version = 3, exportSchema = false)
+@Database(entities = [KeyEntry::class, OperationRecord::class], version = 4, exportSchema = true)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun keyDao(): KeyDao

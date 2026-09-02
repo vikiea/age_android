@@ -6,7 +6,7 @@
 package io.github.vikiea.age.core.model
 
 enum class EncryptMode {
-    BATCH_PACK,   // 打包加密（合并压缩）
-    SEPARATE,     // 分别加密（单文件压缩）
-    DECRYPT       // 解密
+    BATCH_PACK,   // Pack selected inputs into one encrypted archive.
+    SEPARATE,     // Encrypt each selected input independently.
+    DECRYPT
 }

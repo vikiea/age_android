@@ -12,6 +12,7 @@ See LICENSE for details.
   <meta name="description" content="Age Android 不收集、不上传、不传输任何用户文件、密钥或个人数据。">
   <meta name="theme-color" content="#ffffff">
   <link rel="canonical" href="https://vikiea.github.io/age_android/privacy/">
+  <link rel="alternate" hreflang="en" href="https://vikiea.github.io/age_android/privacy/en/">
   <link rel="icon" href="../assets/app-icon.svg" type="image/svg+xml">
   <style>
     :root {
@@ -168,13 +169,13 @@ See LICENSE for details.
         </span>
         <span>Age Android</span>
       </a>
-      <a class="home-link" href="../">返回官网</a>
+      <div><a class="home-link" href="./en/">English</a> <a class="home-link" href="../">返回官网</a></div>
     </div>
   </header>
 
   <main class="container">
     <h1>隐私政策</h1>
-    <p class="updated">最后更新日期：2026 年 5 月 23 日</p>
+    <p class="updated">最后更新日期：2026 年 9 月 2 日</p>
 
     <div class="highlight">
       <strong>简要说明：</strong>Age Android 不收集、不传输、不存储任何用户数据。所有加密和解密操作均在您的设备本地完成。
@@ -193,11 +194,13 @@ See LICENSE for details.
     <h2>2. 数据存储</h2>
     <p>所有数据均存储在您的设备本地：</p>
     <ul>
-      <li><strong>密钥数据</strong>：存储在应用私有的 Room 数据库中，其他应用无法访问</li>
+      <li><strong>公钥与元数据</strong>：存储在应用私有的 Room 数据库中</li>
+      <li><strong>私钥</strong>：由 Android Keystore 中的 AES-256-GCM 密钥加密后，单独存储在应用的 <code>noBackupFilesDir</code>；Room 不保存私钥明文</li>
       <li><strong>设置信息</strong>：存储在应用私有的 DataStore 中</li>
       <li><strong>加密文件</strong>：输出到您选择的目录或应用默认目录</li>
       <li><strong>临时文件</strong>：处理过程中创建，完成后自动清理</li>
     </ul>
+    <p>私钥不会通过 Android 备份跨设备自动恢复。恢复备份或设备密钥失效时，相关记录会安全降级为仅公钥记录；应用不会误报仍持有私钥。</p>
 
     <h2>3. 数据传输</h2>
     <p>Age Android <strong>不会</strong>通过网络上传您的文件、密钥、密码或操作历史。应用更新检查仅访问公开的 GitHub Release 元数据和 APK 下载地址。</p>
@@ -216,6 +219,7 @@ See LICENSE for details.
     <p>本应用使用 <a href="https://filippo.io/age" target="_blank" rel="noopener">age</a> 加密工具，采用以下算法：</p>
     <ul>
       <li><strong>X25519</strong>：非对称密钥交换</li>
+      <li><strong>ML-KEM-768 + X25519</strong>：默认生成的后量子混合 recipient</li>
       <li><strong>ChaCha20-Poly1305</strong>：对称加密</li>
       <li><strong>scrypt</strong>：密码派生函数</li>
     </ul>

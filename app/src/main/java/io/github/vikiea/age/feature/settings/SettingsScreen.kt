@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -68,6 +69,7 @@ import io.github.vikiea.age.R
 import io.github.vikiea.age.core.data.DuplicateStrategy
 import io.github.vikiea.age.core.data.ThemeAccent
 import io.github.vikiea.age.core.data.ThemeMode
+import io.github.vikiea.age.core.data.AppLanguage
 import io.github.vikiea.age.core.update.ReleaseInfo
 import io.github.vikiea.age.ui.glass.GlassBackdrop
 import io.github.vikiea.age.ui.glass.GlassButton
@@ -95,6 +97,8 @@ fun SettingsScreen(
     val themeMode by viewModel.themeMode.collectAsState()
     val themeAccent by viewModel.themeAccent.collectAsState()
     val glassEffectEnabled by viewModel.glassEffectEnabled.collectAsState()
+    val dynamicColorEnabled by viewModel.dynamicColorEnabled.collectAsState()
+    val appLanguage by viewModel.appLanguage.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
     val context = LocalContext.current
     var showDonationDialog by remember { mutableStateOf(false) }
@@ -113,11 +117,11 @@ fun SettingsScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         GlassTopBar(
-            title = "设置",
+            title = stringResource(R.string.settings_title),
             backdrop = backdrop,
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                 }
             }
         )
@@ -130,22 +134,35 @@ fun SettingsScreen(
                 .padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            SectionTitle("外观")
-            SettingsSection(backdrop = backdrop, title = "主题") {
+            SectionTitle(stringResource(R.string.appearance))
+            SettingsSection(backdrop = backdrop, title = stringResource(R.string.theme)) {
                 Text(
-                    text = themeMode.description,
+                    text = themeModeDescription(themeMode),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 GlassSegmentedControl(
-                    options = ThemeMode.entries.map { mode -> GlassSegmentOption(mode, mode.label) },
+                    options = ThemeMode.entries.map { mode -> GlassSegmentOption(mode, themeModeLabel(mode)) },
                     selectedValue = themeMode,
                     onSelected = { viewModel.setThemeMode(it) },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
 
-            SettingsSection(backdrop = backdrop, title = "主题颜色") {
+            SettingsSection(backdrop = backdrop, title = stringResource(R.string.language)) {
+                GlassSegmentedControl(
+                    options = listOf(
+                        GlassSegmentOption(AppLanguage.SYSTEM, stringResource(R.string.follow_system)),
+                        GlassSegmentOption(AppLanguage.ZH_CN, stringResource(R.string.chinese)),
+                        GlassSegmentOption(AppLanguage.ENGLISH, stringResource(R.string.english))
+                    ),
+                    selectedValue = appLanguage,
+                    onSelected = viewModel::setAppLanguage,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            SettingsSection(backdrop = backdrop, title = stringResource(R.string.theme_color)) {
                 ThemeAccentPalette(
                     selectedAccent = themeAccent,
                     onAccentSelected = { viewModel.setThemeAccent(it) }
@@ -154,20 +171,24 @@ fun SettingsScreen(
 
             ToggleSection(
                 backdrop = backdrop,
-                title = "半透明玻璃效果",
-                description = if (glassEffectEnabled) {
-                    "开启卡片透光、模糊与高光层次，浅色背景使用冷蓝灰"
-                } else {
-                    "关闭卡片透光效果，浅色背景使用冷蓝灰，深色背景保持纯黑"
-                },
+                title = stringResource(R.string.glass_effect),
+                description = stringResource(if (glassEffectEnabled) R.string.glass_on_description else R.string.glass_off_description),
                 checked = glassEffectEnabled,
                 onCheckedChange = { viewModel.setGlassEffectEnabled(it) }
             )
 
-            SectionTitle("文件存储")
-            SettingsSection(backdrop = backdrop, title = "保存位置") {
+            ToggleSection(
+                backdrop = backdrop,
+                title = stringResource(R.string.dynamic_color),
+                description = stringResource(if (dynamicColorEnabled) R.string.dynamic_color_on else R.string.dynamic_color_off),
+                checked = dynamicColorEnabled,
+                onCheckedChange = viewModel::setDynamicColorEnabled
+            )
+
+            SectionTitle(stringResource(R.string.file_storage))
+            SettingsSection(backdrop = backdrop, title = stringResource(R.string.save_location)) {
                 Text(
-                    text = resolvedPath ?: "默认: ${viewModel.getDefaultDirPath()}",
+                    text = resolvedPath ?: stringResource(R.string.default_location, viewModel.getDefaultDirPath()),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -175,31 +196,31 @@ fun SettingsScreen(
                     GlassOutlinedButton(onClick = { dirPicker.launch(null) }) {
                         Icon(Icons.Default.Folder, contentDescription = null)
                         Spacer(Modifier.width(4.dp))
-                        Text(if (outputDirUri != null) "更换目录" else "选择目录")
+                        Text(stringResource(if (outputDirUri != null) R.string.change_directory else R.string.choose_directory))
                     }
                     if (outputDirUri != null) {
                         GlassOutlinedButton(onClick = { viewModel.setOutputDirUri(null) }) {
-                            Text("恢复默认")
+                            Text(stringResource(R.string.restore_default))
                         }
                     }
                 }
                 Text(
-                    text = "加密和解密文件保存在同一目录的 encrypted/ 和 decrypted/ 子目录中",
+                    text = stringResource(R.string.save_location_description),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            SettingsSection(backdrop = backdrop, title = "文件名重复时") {
+            SettingsSection(backdrop = backdrop, title = stringResource(R.string.duplicate_files)) {
                 Text(
-                    text = "当输出目录已存在同名文件时的处理方式",
+                    text = stringResource(R.string.duplicate_files_description),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 GlassSegmentedControl(
                     options = listOf(
-                        GlassSegmentOption(DuplicateStrategy.RENAME, "自动重命名"),
-                        GlassSegmentOption(DuplicateStrategy.OVERWRITE, "覆盖")
+                        GlassSegmentOption(DuplicateStrategy.RENAME, stringResource(R.string.auto_rename)),
+                        GlassSegmentOption(DuplicateStrategy.OVERWRITE, stringResource(R.string.overwrite))
                     ),
                     selectedValue = duplicateStrategy,
                     onSelected = { viewModel.setDuplicateStrategy(it) },
@@ -207,8 +228,8 @@ fun SettingsScreen(
                 )
                 Text(
                     text = when (duplicateStrategy) {
-                        DuplicateStrategy.RENAME -> "自动添加 _1, _2 等后缀，保留原文件"
-                        DuplicateStrategy.OVERWRITE -> "直接覆盖已有文件"
+                        DuplicateStrategy.RENAME -> stringResource(R.string.auto_rename_description)
+                        DuplicateStrategy.OVERWRITE -> stringResource(R.string.overwrite_description)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -217,19 +238,15 @@ fun SettingsScreen(
 
             ToggleSection(
                 backdrop = backdrop,
-                title = "打包时压缩",
-                description = if (compressEnabled) {
-                    "tar.gz 格式，体积更小但速度较慢"
-                } else {
-                    "tar 格式，速度更快但体积更大"
-                },
+                title = stringResource(R.string.compress_when_packing),
+                description = stringResource(if (compressEnabled) R.string.compress_on_description else R.string.compress_off_description),
                 checked = compressEnabled,
                 onCheckedChange = { viewModel.setCompressEnabled(it) }
             )
 
-            SettingsSection(backdrop = backdrop, title = "并发数") {
+            SettingsSection(backdrop = backdrop, title = stringResource(R.string.concurrency)) {
                 Text(
-                    text = "同时处理的文件数量，数值越大速度越快但内存占用更高",
+                    text = stringResource(R.string.concurrency_description),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -245,13 +262,13 @@ fun SettingsScreen(
                 }
             }
 
-            SectionTitle("关于")
-            SettingsSection(backdrop = backdrop, title = "应用信息") {
-                DetailRow("版本", viewModel.getCurrentVersion())
+            SectionTitle(stringResource(R.string.about))
+            SettingsSection(backdrop = backdrop, title = stringResource(R.string.app_info)) {
+                DetailRow(stringResource(R.string.version), viewModel.getCurrentVersion())
                 HorizontalDivider()
-                DetailRow("加密引擎", "age (filippo.io)")
+                DetailRow(stringResource(R.string.encryption_engine), "age (filippo.io)")
                 HorizontalDivider()
-                DetailRow("开源协议", "MIT License")
+                DetailRow(stringResource(R.string.open_source_license), "MIT License")
             }
 
             UpdateSection(
@@ -271,8 +288,8 @@ fun SettingsScreen(
                 onDismiss = { viewModel.dismissUpdate() }
             )
 
-            SettingsSection(backdrop = backdrop, title = "作者与项目") {
-                DetailRow("作者", "vikiea")
+            SettingsSection(backdrop = backdrop, title = stringResource(R.string.author_project)) {
+                DetailRow(stringResource(R.string.author), "vikiea")
                 HorizontalDivider()
                 GlassOutlinedButton(
                     onClick = { showDonationDialog = true },
@@ -280,7 +297,7 @@ fun SettingsScreen(
                 ) {
                     Icon(Icons.Default.Favorite, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("支持开发")
+                    Text(stringResource(R.string.support_development))
                 }
                 ExternalLinkButton(
                     text = "github.com/vikiea/age_android",
@@ -294,7 +311,7 @@ fun SettingsScreen(
                     }
                 )
                 ExternalLinkButton(
-                    text = "隐私政策",
+                    text = stringResource(R.string.privacy_policy),
                     onClick = {
                         context.startActivity(
                             Intent(
@@ -339,12 +356,12 @@ private fun DonationDialog(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = "感谢你的支持",
+                        text = stringResource(R.string.donation_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "如果 Age 对你有帮助，可以通过下面的二维码支持开发与维护。自愿支持，不影响任何功能。",
+                        text = stringResource(R.string.donation_description),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -357,7 +374,7 @@ private fun DonationDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     GlassTextButton(onClick = onDismiss) {
-                        Text("关闭")
+                        Text(stringResource(R.string.common_close))
                     }
                 }
             }
@@ -374,14 +391,14 @@ private fun DonationQrGrid() {
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 DonationQrCard(
-                    title = "支付宝",
-                    hint = "请使用支付宝扫一扫",
+                    title = stringResource(R.string.alipay),
+                    hint = stringResource(R.string.scan_alipay),
                     drawableRes = R.drawable.donation_alipay_qr,
                     modifier = Modifier.weight(1f)
                 )
                 DonationQrCard(
-                    title = "微信支付",
-                    hint = "请使用微信扫一扫",
+                    title = stringResource(R.string.wechat_pay),
+                    hint = stringResource(R.string.scan_wechat),
                     drawableRes = R.drawable.donation_wechat_qr,
                     modifier = Modifier.weight(1f)
                 )
@@ -392,14 +409,14 @@ private fun DonationQrGrid() {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 DonationQrCard(
-                    title = "支付宝",
-                    hint = "请使用支付宝扫一扫",
+                    title = stringResource(R.string.alipay),
+                    hint = stringResource(R.string.scan_alipay),
                     drawableRes = R.drawable.donation_alipay_qr,
                     modifier = Modifier.fillMaxWidth()
                 )
                 DonationQrCard(
-                    title = "微信支付",
-                    hint = "请使用微信扫一扫",
+                    title = stringResource(R.string.wechat_pay),
+                    hint = stringResource(R.string.scan_wechat),
                     drawableRes = R.drawable.donation_wechat_qr,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -438,7 +455,7 @@ private fun DonationQrCard(
             ) {
                 Image(
                     painter = painterResource(drawableRes),
-                    contentDescription = "$title 收款码",
+                    contentDescription = stringResource(R.string.payment_qr_description, title),
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit
                 )
@@ -461,22 +478,17 @@ private fun SettingsSection(
     emphasis: GlassEmphasis = GlassEmphasis.Normal,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    GlassSurface(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        backdrop = backdrop,
-        emphasis = emphasis
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium
             )
+            HorizontalDivider()
             content()
-        }
     }
 }
 
@@ -488,17 +500,12 @@ private fun ToggleSection(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    GlassSurface(
-        modifier = Modifier.fillMaxWidth(),
-        backdrop = backdrop,
-        emphasis = GlassEmphasis.Normal
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -514,7 +521,6 @@ private fun ToggleSection(
                 checked = checked,
                 onCheckedChange = onCheckedChange
             )
-        }
     }
 }
 
@@ -525,7 +531,7 @@ private fun ThemeAccentPalette(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            text = selectedAccent.description,
+            text = themeAccentDescription(selectedAccent),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -536,7 +542,7 @@ private fun ThemeAccentPalette(
             onAccentSelected = onAccentSelected
         )
         AccentGroup(
-            title = "纯色强调",
+            title = stringResource(R.string.accent_solid),
             accents = ThemeAccent.entries.filterNot { it.liquidGlass },
             selectedAccent = selectedAccent,
             onAccentSelected = onAccentSelected
@@ -613,7 +619,7 @@ private fun AccentSwatch(
                 )
         )
         Text(
-            text = accent.label,
+            text = themeAccentLabel(accent),
             style = MaterialTheme.typography.labelSmall,
             color = labelColor,
             maxLines = 1,
@@ -632,7 +638,7 @@ private fun UpdateSection(
     onRequestInstallPermission: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    SettingsSection(backdrop = backdrop, title = "检查更新") {
+    SettingsSection(backdrop = backdrop, title = stringResource(R.string.check_updates)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -642,7 +648,7 @@ private fun UpdateSection(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = "从 GitHub 获取最新版本",
+                    text = stringResource(R.string.check_updates_description),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -654,11 +660,11 @@ private fun UpdateSection(
                 if (updateState.isChecking) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(4.dp))
-                    Text("检查中...")
+                    Text(stringResource(R.string.checking))
                 } else {
                     Icon(Icons.Default.Update, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("检查更新")
+                    Text(stringResource(R.string.check_updates))
                 }
             }
         }
@@ -703,7 +709,7 @@ private fun ReleasePanel(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "新版本: ${release.tagName}",
+                text = stringResource(R.string.new_version, release.tagName),
                 color = MaterialTheme.colorScheme.primary,
                 style = MaterialTheme.typography.titleSmall
             )
@@ -715,7 +721,7 @@ private fun ReleasePanel(
                 )
             }
             Text(
-                text = "大小: ${formatFileSize(release.apkSize)}",
+                text = stringResource(R.string.download_size, formatFileSize(release.apkSize)),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -732,19 +738,19 @@ private fun ReleasePanel(
                     if (isDownloading) {
                         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(8.dp))
-                        Text("下载中...")
+                        Text(stringResource(R.string.downloading))
                     } else if (isDownloaded) {
                         Icon(Icons.Default.Update, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text(if (requiresInstallPermission) "申请安装权限" else "立即安装")
+                        Text(stringResource(if (requiresInstallPermission) R.string.request_install_permission else R.string.install_now))
                     } else {
                         Icon(Icons.Default.Update, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("下载更新")
+                        Text(stringResource(R.string.download_update))
                     }
                 }
                 GlassOutlinedButton(onClick = onDismiss) {
-                    Text("忽略")
+                    Text(stringResource(R.string.ignore))
                 }
             }
         }
@@ -801,19 +807,55 @@ private fun formatFileSize(bytes: Long): String {
     }
 }
 
-private val ThemeMode.label: String
-    get() = when (this) {
-        ThemeMode.SYSTEM -> "跟随系统"
-        ThemeMode.DARK -> "深色"
-        ThemeMode.LIGHT -> "浅色"
+@Composable
+private fun themeModeLabel(mode: ThemeMode): String = stringResource(
+    when (mode) {
+        ThemeMode.SYSTEM -> R.string.theme_system
+        ThemeMode.DARK -> R.string.theme_dark
+        ThemeMode.LIGHT -> R.string.theme_light
     }
+)
 
-private val ThemeMode.description: String
-    get() = when (this) {
-        ThemeMode.SYSTEM -> "根据系统外观自动切换"
-        ThemeMode.DARK -> "始终使用深色主题"
-        ThemeMode.LIGHT -> "始终使用浅色主题"
+@Composable
+private fun themeModeDescription(mode: ThemeMode): String = stringResource(
+    when (mode) {
+        ThemeMode.SYSTEM -> R.string.theme_system_description
+        ThemeMode.DARK -> R.string.theme_dark_description
+        ThemeMode.LIGHT -> R.string.theme_light_description
     }
+)
+
+@Composable
+private fun themeAccentLabel(accent: ThemeAccent): String = stringResource(
+    when (accent) {
+        ThemeAccent.LIQUID_DEFAULT -> R.string.accent_default
+        ThemeAccent.LIQUID_AURORA -> R.string.accent_aurora
+        ThemeAccent.LIQUID_SUNRISE -> R.string.accent_sunrise
+        ThemeAccent.LIQUID_OCEAN -> R.string.accent_ocean
+        ThemeAccent.LIQUID_GRAPE -> R.string.accent_grape
+        ThemeAccent.SOLID_GREEN -> R.string.accent_green
+        ThemeAccent.SOLID_BLUE -> R.string.accent_blue
+        ThemeAccent.SOLID_RED -> R.string.accent_red
+        ThemeAccent.SOLID_PURPLE -> R.string.accent_purple
+        ThemeAccent.SOLID_ORANGE -> R.string.accent_orange
+    }
+)
+
+@Composable
+private fun themeAccentDescription(accent: ThemeAccent): String = stringResource(
+    when (accent) {
+        ThemeAccent.LIQUID_DEFAULT -> R.string.accent_default_description
+        ThemeAccent.LIQUID_AURORA -> R.string.accent_aurora_description
+        ThemeAccent.LIQUID_SUNRISE -> R.string.accent_sunrise_description
+        ThemeAccent.LIQUID_OCEAN -> R.string.accent_ocean_description
+        ThemeAccent.LIQUID_GRAPE -> R.string.accent_grape_description
+        ThemeAccent.SOLID_GREEN -> R.string.accent_green_description
+        ThemeAccent.SOLID_BLUE -> R.string.accent_blue_description
+        ThemeAccent.SOLID_RED -> R.string.accent_red_description
+        ThemeAccent.SOLID_PURPLE -> R.string.accent_purple_description
+        ThemeAccent.SOLID_ORANGE -> R.string.accent_orange_description
+    }
+)
 
 private val ThemeAccent.previewBrush: Brush
     get() = when (this) {

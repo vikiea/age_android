@@ -6,20 +6,19 @@
 package io.github.vikiea.age.navigation
 
 import android.net.Uri
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
+import androidx.annotation.StringRes
+import androidx.compose.ui.res.stringResource
+import io.github.vikiea.age.R
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -35,14 +34,12 @@ import io.github.vikiea.age.feature.keys.KeyDetailScreen
 import io.github.vikiea.age.feature.keys.KeysScreen
 import io.github.vikiea.age.feature.settings.SettingsScreen
 import io.github.vikiea.age.ui.glass.GlassBackdropHost
-import io.github.vikiea.age.ui.glass.GlassBottomTabs
-import io.github.vikiea.age.ui.glass.GlassTabItem
 
-enum class TopLevelRoute(val route: String, val label: String, val icon: ImageVector) {
-    ENCRYPT("encrypt", "加密", Icons.Default.Lock),
-    DECRYPT("decrypt", "解密", Icons.Default.LockOpen),
-    KEYS("keys", "密钥", Icons.Default.Key),
-    HISTORY("history", "历史", Icons.Default.History)
+enum class TopLevelRoute(val route: String, @StringRes val labelRes: Int, val icon: ImageVector) {
+    ENCRYPT("encrypt", R.string.nav_encrypt, Icons.Default.Lock),
+    DECRYPT("decrypt", R.string.nav_decrypt, Icons.Default.LockOpen),
+    KEYS("keys", R.string.nav_keys, Icons.Default.Key),
+    HISTORY("history", R.string.nav_history, Icons.Default.History)
 }
 
 @Composable
@@ -73,21 +70,11 @@ fun AppNavigation(
     }
 
     GlassBackdropHost(glassEffectEnabled = glassEffectEnabled) { backdrop ->
-        Box(Modifier.fillMaxSize()) {
+        val content = @Composable {
             NavHost(
                 navController = navController,
                 startDestination = TopLevelRoute.ENCRYPT.route,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(
-                        if (showBottomBar) {
-                            Modifier
-                                .navigationBarsPadding()
-                                .padding(bottom = 88.dp)
-                        } else {
-                            Modifier
-                        }
-                    )
+                modifier = Modifier.fillMaxSize()
             ) {
                 composable(TopLevelRoute.ENCRYPT.route) {
                     EncryptScreen(
@@ -146,21 +133,32 @@ fun AppNavigation(
                     )
                 }
             }
-            if (showBottomBar) {
-                GlassBottomTabs(
-                    items = TopLevelRoute.entries.map { GlassTabItem(it.route, it.label, it.icon) },
-                    selectedRoute = currentRoute,
-                    onItemClick = { route ->
-                        navController.navigate(route.route) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                    backdrop = backdrop
-                )
+        }
+        if (showBottomBar) {
+            val routeLabels = TopLevelRoute.entries.associateWith { stringResource(it.labelRes) }
+            NavigationSuiteScaffold(
+                navigationSuiteItems = {
+                    TopLevelRoute.entries.forEach { route ->
+                        val label = routeLabels.getValue(route)
+                        item(
+                            selected = currentRoute == route.route,
+                            onClick = {
+                                navController.navigate(route.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            icon = { androidx.compose.material3.Icon(route.icon, contentDescription = label) },
+                            label = { androidx.compose.material3.Text(label) }
+                        )
+                    }
+                }
+            ) {
+                content()
             }
+        } else {
+            content()
         }
     }
 }

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy - Age Android</title>
+  <meta name="description" content="Age Android keeps files, passphrases, keys, and history on your Android device.">
+  <link rel="canonical" href="https://vikiea.github.io/age_android/privacy/en/">
+  <link rel="alternate" hreflang="zh-CN" href="https://vikiea.github.io/age_android/privacy/">
+  <link rel="icon" href="../../assets/app-icon.svg" type="image/svg+xml">
+  <style>
+    :root { color-scheme: light dark; font-family: Inter, system-ui, sans-serif; line-height: 1.7; letter-spacing: 0; }
+    body { margin: 0; min-width: 320px; color: CanvasText; background: Canvas; }
+    header { border-bottom: 1px solid color-mix(in srgb, CanvasText 16%, transparent); }
+    nav, main { width: min(820px, calc(100% - 40px)); margin: 0 auto; }
+    nav { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    nav a { color: inherit; font-weight: 700; text-decoration: none; }
+    main { padding: 56px 0 80px; }
+    h1 { margin: 0; font-size: clamp(42px, 9vw, 72px); line-height: 1; }
+    h2 { margin: 34px 0 10px; font-size: 24px; }
+    p, li { margin: 0 0 10px; }
+    .updated { margin: 14px 0 30px; opacity: .72; }
+    .summary { padding: 20px; border-left: 4px solid #16856a; background: color-mix(in srgb, #16856a 12%, Canvas); }
+    a { color: #16856a; }
+    footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid color-mix(in srgb, CanvasText 16%, transparent); opacity: .72; }
+  </style>
+</head>
+<body>
+  <header><nav><a href="../../">Age Android</a><a href="../">中文</a></nav></header>
+  <main>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: September 2, 2026</p>
+    <p class="summary"><strong>Summary:</strong> Age Android does not collect or upload user data. Encryption and decryption run locally on your device.</p>
+
+    <h2>1. Data collection</h2>
+    <p>Age Android does not collect identity information, device identifiers, location, analytics, usage events, or crash reports.</p>
+
+    <h2>2. Local storage and private keys</h2>
+    <ul>
+      <li>Public keys, non-secret metadata, and operation history are stored in the app-private Room database.</li>
+      <li>Private keys are encrypted with an AES-256-GCM wrapping key held by Android Keystore, then stored separately in <code>noBackupFilesDir</code>. Room never stores private-key plaintext.</li>
+      <li>Settings are stored in app-private DataStore; outputs go only to the location you choose or the app's local default folders.</li>
+      <li>Temporary and incomplete outputs are removed after completion, failure, or cancellation.</li>
+    </ul>
+    <p>Private keys are intentionally not restored to another device. After a backup restore or Keystore invalidation, affected entries safely become public-key-only records.</p>
+
+    <h2>3. Network access</h2>
+    <p>Files, passphrases, private keys, and history are never uploaded. Network access is used only when you explicitly check for a GitHub Release or download an APK update.</p>
+
+    <h2>4. Sensitive actions</h2>
+    <p>Viewing, copying, or exporting a private key requires strong biometrics or the device credential. Normal local encryption and decryption do not add an extra authentication prompt.</p>
+
+    <h2>5. Cryptography</h2>
+    <p>Age Android uses the <a href="https://filippo.io/age">age</a> format, including scrypt passphrases, classic X25519 recipients, and default hybrid ML-KEM-768 + X25519 recipients.</p>
+
+    <h2>6. Third parties</h2>
+    <p>The app contains no advertising, analytics, cloud key storage, file upload, or third-party crash reporting SDK.</p>
+
+    <h2>7. Contact</h2>
+    <p>Questions can be filed at <a href="https://github.com/vikiea/age_android">github.com/vikiea/age_android</a>.</p>
+
+    <footer>Age Android is open source under the MIT License.</footer>
+  </main>
+</body>
+</html>

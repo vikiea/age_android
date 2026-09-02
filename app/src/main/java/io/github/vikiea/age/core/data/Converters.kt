@@ -32,4 +32,28 @@ class Converters {
 
     @TypeConverter
     fun toOperationType(value: String): OperationType = OperationType.valueOf(value)
+
+    @TypeConverter
+    fun fromAgeKeyType(value: AgeKeyType): String = value.name
+
+    @TypeConverter
+    fun toAgeKeyType(value: String): AgeKeyType = AgeKeyType.valueOf(value)
+
+    @TypeConverter
+    fun fromOperationAuthMethod(value: OperationAuthMethod): String = value.name
+
+    @TypeConverter
+    fun toOperationAuthMethod(value: String): OperationAuthMethod = OperationAuthMethod.valueOf(value)
+
+    @TypeConverter
+    fun fromCompressionState(value: CompressionState): String = value.name
+
+    @TypeConverter
+    fun toCompressionState(value: String): CompressionState = CompressionState.valueOf(value)
+
+    @TypeConverter
+    fun fromRecordedDuplicateStrategy(value: RecordedDuplicateStrategy): String = value.name
+
+    @TypeConverter
+    fun toRecordedDuplicateStrategy(value: String): RecordedDuplicateStrategy = RecordedDuplicateStrategy.valueOf(value)
 }

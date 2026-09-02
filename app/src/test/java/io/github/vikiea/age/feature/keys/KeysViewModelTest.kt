@@ -1,8 +1,10 @@
 package io.github.vikiea.age.feature.keys
 
 import android.content.Context
+import io.github.vikiea.age.R
 import io.github.vikiea.age.core.age.AgeEngine
 import io.github.vikiea.age.core.data.KeyRepository
+import io.github.vikiea.age.core.model.AgeKeyType
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -26,6 +28,7 @@ import org.junit.Test
 class KeysViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var keyRepository: KeyRepository
+    private lateinit var ageEngine: AgeEngine
     private lateinit var viewModel: KeysViewModel
 
     @Before
@@ -34,10 +37,15 @@ class KeysViewModelTest {
         keyRepository = mockk {
             every { getAllKeys() } returns flowOf(emptyList())
         }
+        ageEngine = mockk {
+            coEvery { encryptWithRecipient(any(), any()) } returns byteArrayOf()
+        }
         viewModel = KeysViewModel(
-            context = mockk<Context>(relaxed = true),
+            context = mockk<Context>(relaxed = true) {
+                every { getString(R.string.key_imported) } returns "密钥已导入"
+            },
             keyRepository = keyRepository,
-            ageEngine = mockk<AgeEngine>()
+            ageEngine = ageEngine
         )
     }
 
@@ -48,7 +56,7 @@ class KeysViewModelTest {
 
     @Test
     fun `importKey reports imported key as transient tip`() = runTest(testDispatcher) {
-        coEvery { keyRepository.importKey("work", "age1public", null) } returns 1L
+        coEvery { keyRepository.importKey("work", "age1public", null, AgeKeyType.X25519) } returns 1L
 
         viewModel.showImportDialog()
         viewModel.setImportName("work")
@@ -59,6 +67,6 @@ class KeysViewModelTest {
         assertFalse(viewModel.uiState.value.showImportDialog)
         assertEquals("密钥已导入", viewModel.uiState.value.tip)
         assertNull(viewModel.uiState.value.success)
-        coVerify { keyRepository.importKey("work", "age1public", null) }
+        coVerify { keyRepository.importKey("work", "age1public", null, AgeKeyType.X25519) }
     }
 }

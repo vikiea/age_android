@@ -21,8 +21,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import io.github.vikiea.age.R
 
 @Composable
 fun GlassStatusPanel(
@@ -57,7 +59,7 @@ fun GlassStatusPanel(
                 }
                 onDismiss?.let {
                     IconButton(onClick = it) {
-                        Icon(Icons.Default.Close, contentDescription = "关闭")
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.common_close))
                     }
                 }
             }

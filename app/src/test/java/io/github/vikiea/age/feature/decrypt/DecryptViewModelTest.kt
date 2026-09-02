@@ -1,6 +1,9 @@
 package io.github.vikiea.age.feature.decrypt
 
+import android.content.Context
+import io.github.vikiea.age.R
 import io.github.vikiea.age.core.age.AgeEngine
+import io.github.vikiea.age.core.age.AgeCancellationToken
 import io.github.vikiea.age.core.data.KeyRepository
 import io.github.vikiea.age.core.data.OperationRepository
 import io.github.vikiea.age.core.data.DuplicateStrategy
@@ -35,6 +38,10 @@ class DecryptViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         ageEngine = mockk()
+        every { ageEngine.newCancellationToken() } returns mockk<AgeCancellationToken> {
+            every { isCancelled } returns false
+            every { cancel() } just Runs
+        }
         val keyRepository = mockk<KeyRepository> { every { getAllKeys() } returns flowOf(emptyList()) }
         operationRepository = mockk {
             coEvery { insertOperation(any()) } returns 1L
@@ -45,13 +52,16 @@ class DecryptViewModelTest {
             every { outputDirUri } returns flowOf(null)
             every { duplicateStrategy } returns flowOf(DuplicateStrategy.RENAME)
             coEvery { getDecryptUsePassphraseOnce() } returns true
-            coEvery { getSelectedPrivateKeyOnce() } returns ""
+            coEvery { getSelectedPrivateKeyIdOnce() } returns null
             coEvery { getConcurrencyOnce() } returns 1
             coEvery { getDuplicateStrategyOnce() } returns DuplicateStrategy.RENAME
             coEvery { setDecryptUsePassphrase(any()) } just Runs
-            coEvery { setSelectedPrivateKey(any()) } just Runs
+            coEvery { setSelectedPrivateKeyId(any()) } just Runs
         }
-        viewModel = DecryptViewModel(ageEngine, keyRepository, operationRepository, fileHelper, settingsDataStore)
+        val context = mockk<Context>(relaxed = true) {
+            every { getString(R.string.error_select_files) } returns "请先选择文件"
+        }
+        viewModel = DecryptViewModel(ageEngine, keyRepository, operationRepository, fileHelper, settingsDataStore, context)
     }
 
     @After
@@ -124,16 +134,16 @@ class DecryptViewModelTest {
 
         every { fileHelper.getFileName(uri) } returns "docs.tar.age"
         every { fileHelper.getCacheDir() } returns cacheDir
-        every { fileHelper.streamUriToTemp(uri, "dec_src") } returns sourceTemp
+        every { fileHelper.streamUriToTemp(uri, "dec_src", any()) } returns sourceTemp
         every { fileHelper.deleteTempFile(any()) } answers { firstArg<File>().delete(); Unit }
         every { fileHelper.getFallbackDecryptedDir() } returns File(cacheDir, "decrypted")
-        every { fileHelper.untarStreaming(any(), any()) } answers {
-            secondArg<(String, java.io.InputStream, Long) -> Unit>()
+        every { fileHelper.untarStreaming(any(), any(), any()) } answers {
+            thirdArg<(String, java.io.InputStream, Long) -> Unit>()
                 .invoke("docs/readme.txt", "hello".byteInputStream(), 5L)
             Unit
         }
-        every { fileHelper.writeStreamToDirRelative(any(), "docs/readme.txt", any(), DuplicateStrategy.RENAME) } returns "docs/readme.txt"
-        coEvery { ageEngine.decryptStreamToFile(sourceTemp.absolutePath, any(), "pw") } answers {
+        every { fileHelper.writeStreamToDirRelative(any(), "docs/readme.txt", any(), DuplicateStrategy.RENAME, any()) } returns "docs/readme.txt"
+        coEvery { ageEngine.decryptStreamToFile(sourceTemp.absolutePath, any(), "pw", any()) } answers {
             decryptedTemp.writeText("tar")
             Unit
         }

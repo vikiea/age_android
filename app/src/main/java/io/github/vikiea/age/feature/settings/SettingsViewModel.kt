@@ -8,12 +8,14 @@ package io.github.vikiea.age.feature.settings
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import io.github.vikiea.age.R
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.vikiea.age.core.data.DuplicateStrategy
 import io.github.vikiea.age.core.data.SettingsDataStore
 import io.github.vikiea.age.core.data.ThemeAccent
 import io.github.vikiea.age.core.data.ThemeMode
+import io.github.vikiea.age.core.data.AppLanguage
 import io.github.vikiea.age.core.update.ApkDownloadResult
 import io.github.vikiea.age.core.update.ReleaseInfo
 import io.github.vikiea.age.core.update.UpdateChecker
@@ -70,6 +72,12 @@ class SettingsViewModel @Inject constructor(
     val glassEffectEnabled: StateFlow<Boolean> = settingsDataStore.glassEffectEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val dynamicColorEnabled: StateFlow<Boolean> = settingsDataStore.dynamicColorEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val appLanguage: StateFlow<AppLanguage> = settingsDataStore.appLanguage
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppLanguage.SYSTEM)
+
     private val _updateState = MutableStateFlow(UpdateState())
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
 
@@ -92,13 +100,13 @@ class SettingsViewModel @Inject constructor(
                         if (release != null) {
                             it.copy(isChecking = false, releaseInfo = release, message = null)
                         } else {
-                            it.copy(isChecking = false, releaseInfo = null, message = "已是最新版本")
+                            it.copy(isChecking = false, releaseInfo = null, message = context.getString(R.string.update_latest))
                         }
                     }
                 }
                 .onFailure { e ->
                     _updateState.update {
-                        it.copy(isChecking = false, error = "检查更新失败: ${e.message}")
+                        it.copy(isChecking = false, error = context.getString(R.string.update_check_failed, e.message.orEmpty()))
                     }
                 }
         }
@@ -115,12 +123,12 @@ class SettingsViewModel @Inject constructor(
                 requiresInstallPermission = false
             )
         }
-        awaitDownloadResult(downloadId, release.versionName)
+        awaitDownloadResult(downloadId, release.versionName, release.sha256)
     }
 
-    private fun awaitDownloadResult(downloadId: Long, versionName: String) {
+    private fun awaitDownloadResult(downloadId: Long, versionName: String, expectedSha256: String) {
         viewModelScope.launch {
-            when (val result = updateChecker.awaitApkDownload(downloadId, versionName)) {
+            when (val result = updateChecker.awaitApkDownload(downloadId, versionName, expectedSha256)) {
                 is ApkDownloadResult.Completed -> {
                     if (downloadId != _updateState.value.downloadId) return@launch
                     _updateState.update {
@@ -156,7 +164,7 @@ class SettingsViewModel @Inject constructor(
                 it.copy(
                     downloadedApkPath = null,
                     requiresInstallPermission = false,
-                    error = "安装包文件不存在，请重新下载"
+                    error = context.getString(R.string.update_apk_missing)
                 )
             }
         }
@@ -185,7 +193,7 @@ class SettingsViewModel @Inject constructor(
             _updateState.update {
                 it.copy(
                     requiresInstallPermission = true,
-                    error = "请先允许 Age Android 安装未知应用，然后返回继续安装"
+                    error = context.getString(R.string.update_install_permission_needed)
                 )
             }
         }
@@ -241,6 +249,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             settingsDataStore.setGlassEffectEnabled(value)
         }
+    }
+
+    fun setDynamicColorEnabled(value: Boolean) {
+        viewModelScope.launch { settingsDataStore.setDynamicColorEnabled(value) }
+    }
+
+    fun setAppLanguage(value: AppLanguage) {
+        viewModelScope.launch { settingsDataStore.setAppLanguage(value) }
     }
 
     fun setOutputDirUri(uri: Uri?) {

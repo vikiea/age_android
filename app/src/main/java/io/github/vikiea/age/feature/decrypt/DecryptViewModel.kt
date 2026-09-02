@@ -5,11 +5,14 @@
  */
 package io.github.vikiea.age.feature.decrypt
 
+import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.vikiea.age.core.age.AgeEngine
+import io.github.vikiea.age.R
+import io.github.vikiea.age.core.age.AgeCancellationToken
 import io.github.vikiea.age.core.data.DuplicateStrategy
 import io.github.vikiea.age.core.data.KeyRepository
 import io.github.vikiea.age.core.data.OperationRepository
@@ -19,7 +22,9 @@ import io.github.vikiea.age.core.file.SelectedFileItem
 import io.github.vikiea.age.core.file.SelectedFileLeaf
 import io.github.vikiea.age.core.model.*
 import io.github.vikiea.age.core.util.FileHelper
+import io.github.vikiea.age.core.util.FileOperationCancelledException
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
@@ -44,7 +49,7 @@ data class DecryptUiState(
     val files: List<DecryptFileItem> = emptyList(),
     val usePassphrase: Boolean = true,
     val passphrase: String = "",
-    val selectedPrivateKey: String = "",
+    val selectedPrivateKeyId: Long? = null,
     val isProcessing: Boolean = false,
     val progress: Float = 0f,
     val processedCount: Int = 0,
@@ -66,7 +71,8 @@ class DecryptViewModel @Inject constructor(
     private val keyRepository: KeyRepository,
     private val operationRepository: OperationRepository,
     private val fileHelper: FileHelper,
-    private val settingsDataStore: SettingsDataStore
+    private val settingsDataStore: SettingsDataStore,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DecryptUiState())
@@ -77,12 +83,13 @@ class DecryptViewModel @Inject constructor(
 
     private val customOutputDir: StateFlow<String?> = settingsDataStore.outputDirUri
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    private var currentToken: AgeCancellationToken? = null
 
     init {
         viewModelScope.launch {
             val savedUsePassphrase = settingsDataStore.getDecryptUsePassphraseOnce()
-            val savedPrivateKey = settingsDataStore.getSelectedPrivateKeyOnce()
-            _uiState.update { it.copy(usePassphrase = savedUsePassphrase, selectedPrivateKey = savedPrivateKey) }
+            val savedPrivateKeyId = settingsDataStore.getSelectedPrivateKeyIdOnce()
+            _uiState.update { it.copy(usePassphrase = savedUsePassphrase, selectedPrivateKeyId = savedPrivateKeyId) }
         }
     }
 
@@ -127,9 +134,9 @@ class DecryptViewModel @Inject constructor(
         _uiState.update { it.copy(passphrase = value) }
     }
 
-    fun setSelectedPrivateKey(value: String) {
-        _uiState.update { it.copy(selectedPrivateKey = value) }
-        viewModelScope.launch { settingsDataStore.setSelectedPrivateKey(value) }
+    fun setSelectedPrivateKeyId(value: Long?) {
+        _uiState.update { it.copy(selectedPrivateKeyId = value) }
+        viewModelScope.launch { settingsDataStore.setSelectedPrivateKeyId(value) }
     }
 
     fun clearError() {
@@ -139,6 +146,10 @@ class DecryptViewModel @Inject constructor(
     fun clearResult() {
         fileHelper.cleanShareCache()
         _uiState.update { it.copy(result = null, outputFiles = emptyList(), outputDir = null) }
+    }
+
+    fun cancelOperation() {
+        currentToken?.cancel()
     }
 
     fun shareOutput() {
@@ -174,40 +185,48 @@ class DecryptViewModel @Inject constructor(
     fun startDecrypt() {
         val state = _uiState.value
         if (state.files.isEmpty()) {
-            _uiState.update { it.copy(error = "请先选择文件") }
+            _uiState.update { it.copy(error = context.getString(R.string.error_select_files)) }
             return
         }
         if (state.usePassphrase && state.passphrase.isBlank()) {
-            _uiState.update { it.copy(error = "请输入密码") }
+            _uiState.update { it.copy(error = context.getString(R.string.error_enter_passphrase)) }
             return
         }
-        if (!state.usePassphrase && state.selectedPrivateKey.isBlank()) {
-            _uiState.update { it.copy(error = "请选择或输入私钥") }
+        if (!state.usePassphrase && state.selectedPrivateKeyId == null) {
+            _uiState.update { it.copy(error = context.getString(R.string.error_select_identity)) }
             return
         }
 
         viewModelScope.launch {
+            val token = ageEngine.newCancellationToken().also { currentToken = it }
             val inputLeaves = state.inputLeaves()
             _uiState.update { it.copy(isProcessing = true, error = null, result = null, progress = 0f, processedCount = 0, totalCount = inputLeaves.size, successCount = 0, failCount = 0, outputFiles = emptyList(), outputDir = null) }
 
             val outDirPath = getOutputDir().absolutePath
+            val concurrency = settingsDataStore.getConcurrencyOnce()
+            val duplicateStrategy = settingsDataStore.getDuplicateStrategyOnce()
+            val selectedKey = state.selectedPrivateKeyId?.let { keyRepository.getKeyById(it) }
             val record = OperationRecord(
                 type = OperationType.DECRYPT,
                 mode = EncryptMode.DECRYPT,
                 inputFiles = state.files.map { it.displayPath() },
                 outputPath = outDirPath,
-                recipientInfo = if (state.usePassphrase) "密码解密" else "私钥解密",
+                recipientInfo = if (state.usePassphrase) "Passphrase" else "Identity key",
+                authMethod = if (state.usePassphrase) OperationAuthMethod.PASSPHRASE else OperationAuthMethod.IDENTITY,
+                keyHint = selectedKey?.let { identityHint(it.publicKey) }.orEmpty(),
+                compression = CompressionState.UNKNOWN,
+                duplicateStrategy = if (duplicateStrategy == DuplicateStrategy.RENAME) RecordedDuplicateStrategy.RENAME else RecordedDuplicateStrategy.OVERWRITE,
+                concurrency = concurrency,
                 status = OperationStatus.RUNNING
             )
             val recordId = operationRepository.insertOperation(record)
 
             try {
-                val concurrency = settingsDataStore.getConcurrencyOnce()
                 val successCount = AtomicInteger(0)
                 val failCount = AtomicInteger(0)
                 val processedCount = AtomicInteger(0)
                 val outputNames = java.util.concurrent.ConcurrentLinkedQueue<String>()
-                val strategy = settingsDataStore.getDuplicateStrategyOnce()
+                val strategy = duplicateStrategy
                 val files = state.inputLeaves()
                 val totalFiles = files.size
 
@@ -219,50 +238,59 @@ class DecryptViewModel @Inject constructor(
                                 var sourceTemp: java.io.File? = null
                                 val decryptedTemp = java.io.File(fileHelper.getCacheDir(), "dec_out_${System.currentTimeMillis()}_${index}.tmp")
                                 try {
-                                    sourceTemp = fileHelper.streamUriToTemp(file.uri, "dec_src")
+                                    sourceTemp = fileHelper.streamUriToTemp(file.uri, "dec_src") { token.isCancelled }
+                                    val encryptedSource = requireNotNull(sourceTemp)
 
                                     if (state.usePassphrase) {
-                                        ageEngine.decryptStreamToFile(sourceTemp.absolutePath, decryptedTemp.absolutePath, state.passphrase)
+                                        ageEngine.decryptStreamToFile(encryptedSource.absolutePath, decryptedTemp.absolutePath, state.passphrase, token)
                                     } else {
-                                        ageEngine.decryptStreamToFileWithKey(sourceTemp.absolutePath, decryptedTemp.absolutePath, state.selectedPrivateKey)
+                                        keyRepository.withPrivateKey(requireNotNull(state.selectedPrivateKeyId)) { identity ->
+                                            ageEngine.decryptStreamToFileWithIdentity(encryptedSource.absolutePath, decryptedTemp.absolutePath, identity, token)
+                                        }
                                     }
                                     fileHelper.deleteTempFile(sourceTemp)
                                     sourceTemp = null
 
                                     var isTar = false
                                     try {
-                                        fileHelper.untarStreaming(decryptedTemp) { entryName, entryStream, entrySize ->
-                                            val actualName = writeStreamToFile(entryName, entryStream, entrySize, strategy)
+                                        fileHelper.untarStreaming(decryptedTemp, { token.isCancelled }) { entryName, entryStream, entrySize ->
+                                            val actualName = writeStreamToFile(entryName, entryStream, entrySize, strategy, token)
                                             outputNames.add(actualName)
                                         }
                                         isTar = true
                                         successCount.incrementAndGet()
-                                    } catch (_: Exception) {}
+                                    } catch (error: Exception) {
+                                        if (token.isCancelled) throw error
+                                    }
 
                                     if (!isTar) {
                                         try {
-                                            fileHelper.untarGzipStreaming(decryptedTemp) { entryName, entryStream, entrySize ->
-                                                val actualName = writeStreamToFile(entryName, entryStream, entrySize, strategy)
+                                            fileHelper.untarGzipStreaming(decryptedTemp, { token.isCancelled }) { entryName, entryStream, entrySize ->
+                                                val actualName = writeStreamToFile(entryName, entryStream, entrySize, strategy, token)
                                                 outputNames.add(actualName)
                                             }
                                             isTar = true
                                             successCount.incrementAndGet()
-                                        } catch (_: Exception) {}
+                                        } catch (error: Exception) {
+                                            if (token.isCancelled) throw error
+                                        }
                                     }
 
                                     if (!isTar) {
                                         val outName = decryptedRelativePath(file.relativePath)
                                         val decompressedTemp = try {
-                                            fileHelper.gunzipToTemp(decryptedTemp)
-                                        } catch (_: Exception) {
+                                            fileHelper.gunzipToTemp(decryptedTemp) { token.isCancelled }
+                                        } catch (error: Exception) {
+                                            if (token.isCancelled) throw error
                                             decryptedTemp
                                         }
-                                        val actualName = writeOutputFromTemp(outName, decompressedTemp, strategy)
+                                        val actualName = writeOutputFromTemp(outName, decompressedTemp, strategy, token)
                                         if (decompressedTemp !== decryptedTemp) fileHelper.deleteTempFile(decompressedTemp)
                                         successCount.incrementAndGet()
                                         outputNames.add(actualName)
                                     }
-                                } catch (_: Exception) {
+                                } catch (error: Exception) {
+                                    if (token.isCancelled) throw error
                                     failCount.incrementAndGet()
                                 } finally {
                                     sourceTemp?.let { fileHelper.deleteTempFile(it) }
@@ -283,40 +311,45 @@ class DecryptViewModel @Inject constructor(
                     }.awaitAll()
                 }
 
+                if (token.isCancelled) throw FileOperationCancelledException()
+
                 val success = successCount.get()
                 val fail = failCount.get()
                 val outDir = getOutputDir()
                 val outputFiles = outputNames.toList()
                 operationRepository.updateOperation(record.copy(id = recordId, status = OperationStatus.SUCCESS, outputPath = outDir.absolutePath, outputFiles = outputFiles))
-                _uiState.update { it.copy(isProcessing = false, result = "解密完成！成功: $success, 失败: $fail", progress = 1f, outputFiles = outputFiles, outputDir = outDir.absolutePath) }
+                _uiState.update { it.copy(isProcessing = false, result = context.getString(R.string.decrypt_result_count, success, fail), progress = 1f, outputFiles = outputFiles, outputDir = outDir.absolutePath) }
             } catch (e: Exception) {
-                operationRepository.updateOperation(record.copy(id = recordId, status = OperationStatus.FAILED, errorMessage = e.message))
-                _uiState.update { it.copy(isProcessing = false, error = "解密失败: ${e.message}") }
+                val cancelled = token.isCancelled
+                operationRepository.updateOperation(record.copy(id = recordId, status = if (cancelled) OperationStatus.CANCELLED else OperationStatus.FAILED, errorMessage = if (cancelled) null else "Decryption failed"))
+                _uiState.update { it.copy(isProcessing = false, error = if (cancelled) null else context.getString(R.string.decrypt_failed), result = if (cancelled) context.getString(R.string.common_operation_cancelled) else null) }
+            } finally {
+                if (currentToken === token) currentToken = null
             }
         }
     }
 
-    private fun writeStreamToFile(name: String, input: java.io.InputStream, size: Long, strategy: DuplicateStrategy): String {
+    private fun writeStreamToFile(name: String, input: java.io.InputStream, size: Long, strategy: DuplicateStrategy, token: AgeCancellationToken): String {
         val customUriStr = customOutputDir.value
         if (customUriStr != null) {
             val customUri = customUriStr.toUri()
-            return fileHelper.writeStreamToSafRelative(customUri, "decrypted", name, input, strategy)
-                ?: throw Exception("写入文件失败")
+            return fileHelper.writeStreamToSafRelative(customUri, "decrypted", name, input, strategy) { token.isCancelled }
+                ?: throw Exception(context.getString(R.string.error_write_file))
         } else {
             val outDir = getOutputDir()
-            return fileHelper.writeStreamToDirRelative(outDir, name, input, strategy)
+            return fileHelper.writeStreamToDirRelative(outDir, name, input, strategy) { token.isCancelled }
         }
     }
 
-    private fun writeOutputFromTemp(name: String, srcFile: java.io.File, strategy: DuplicateStrategy): String {
+    private fun writeOutputFromTemp(name: String, srcFile: java.io.File, strategy: DuplicateStrategy, token: AgeCancellationToken): String {
         val customUriStr = customOutputDir.value
         if (customUriStr != null) {
             val customUri = customUriStr.toUri()
-            return fileHelper.copyFileToSafRelative(customUri, "decrypted", name, srcFile, strategy)
-                ?: throw Exception("写入文件失败")
+            return fileHelper.copyFileToSafRelative(customUri, "decrypted", name, srcFile, strategy) { token.isCancelled }
+                ?: throw Exception(context.getString(R.string.error_write_file))
         } else {
             val outDir = getOutputDir()
-            return fileHelper.copyFileToDirRelative(outDir, name, srcFile, strategy)
+            return fileHelper.copyFileToDirRelative(outDir, name, srcFile, strategy) { token.isCancelled }
         }
     }
 }
@@ -338,3 +371,6 @@ private fun DecryptFileItem.displayPath(): String =
 
 private fun decryptedRelativePath(relativePath: String): String =
     normalizeRelativePath(relativePath).removeSuffix(".age").ifEmpty { "decrypted_output" }
+
+private fun identityHint(recipient: String): String =
+    "${if (recipient.startsWith("age1pq1")) "PQ" else "X25519"} ·${recipient.takeLast(8)}"

@@ -5,11 +5,14 @@
  */
 package io.github.vikiea.age.feature.encrypt
 
+import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.vikiea.age.core.age.AgeEngine
+import io.github.vikiea.age.R
+import io.github.vikiea.age.core.age.AgeCancellationToken
 import io.github.vikiea.age.core.data.DuplicateStrategy
 import io.github.vikiea.age.core.data.KeyRepository
 import io.github.vikiea.age.core.data.OperationRepository
@@ -20,6 +23,7 @@ import io.github.vikiea.age.core.file.SelectedFileLeaf
 import io.github.vikiea.age.core.model.*
 import io.github.vikiea.age.core.util.FileHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
@@ -71,7 +75,8 @@ class EncryptViewModel @Inject constructor(
     private val keyRepository: KeyRepository,
     private val operationRepository: OperationRepository,
     private val fileHelper: FileHelper,
-    private val settingsDataStore: SettingsDataStore
+    private val settingsDataStore: SettingsDataStore,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EncryptUiState())
@@ -82,6 +87,7 @@ class EncryptViewModel @Inject constructor(
 
     private val customOutputDir: StateFlow<String?> = settingsDataStore.outputDirUri
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    private var currentToken: AgeCancellationToken? = null
 
     init {
         viewModelScope.launch {
@@ -202,6 +208,11 @@ class EncryptViewModel @Inject constructor(
         _uiState.update { it.copy(result = null, outputFiles = emptyList(), outputDir = null) }
     }
 
+    fun cancelOperation() {
+        currentToken?.cancel()
+        _uiState.update { it.copy(phase = context.getString(R.string.phase_cancelling)) }
+    }
+
     fun shareOutput() {
         val state = _uiState.value
         if (state.outputFiles.isEmpty()) return
@@ -235,28 +246,36 @@ class EncryptViewModel @Inject constructor(
     fun startEncrypt() {
         val state = _uiState.value
         if (state.files.isEmpty()) {
-            _uiState.update { it.copy(error = "请先选择文件") }
+            _uiState.update { it.copy(error = context.getString(R.string.error_select_files)) }
             return
         }
         if (state.usePassphrase && state.passphrase.isBlank()) {
-            _uiState.update { it.copy(error = "请输入密码") }
+            _uiState.update { it.copy(error = context.getString(R.string.error_enter_passphrase)) }
             return
         }
         if (!state.usePassphrase && state.selectedPublicKey.isBlank()) {
-            _uiState.update { it.copy(error = "请选择或输入公钥") }
+            _uiState.update { it.copy(error = context.getString(R.string.error_select_recipient)) }
             return
         }
 
         viewModelScope.launch {
+            val token = ageEngine.newCancellationToken().also { currentToken = it }
             val inputLeaves = state.inputLeaves()
             _uiState.update { it.copy(isProcessing = true, error = null, result = null, progress = 0f, phase = "", processedCount = 0, totalCount = inputLeaves.size, successCount = 0, failCount = 0, outputFiles = emptyList(), outputDir = null) }
 
+            val concurrency = settingsDataStore.getConcurrencyOnce()
+            val duplicateStrategy = settingsDataStore.getDuplicateStrategyOnce()
             val record = OperationRecord(
                 type = OperationType.ENCRYPT,
                 mode = state.mode,
                 inputFiles = state.files.map { it.displayPath() },
                 outputPath = state.outputFileName,
-                recipientInfo = if (state.usePassphrase) "密码加密" else state.selectedPublicKey.take(20) + "...",
+                recipientInfo = if (state.usePassphrase) "Passphrase" else "Recipient key",
+                authMethod = if (state.usePassphrase) OperationAuthMethod.PASSPHRASE else OperationAuthMethod.RECIPIENT,
+                keyHint = if (state.usePassphrase) "" else recipientHint(state.selectedPublicKey),
+                compression = if (state.compressEnabled) CompressionState.ENABLED else CompressionState.DISABLED,
+                duplicateStrategy = if (duplicateStrategy == DuplicateStrategy.RENAME) RecordedDuplicateStrategy.RENAME else RecordedDuplicateStrategy.OVERWRITE,
+                concurrency = concurrency,
                 status = OperationStatus.RUNNING
             )
             val recordId = operationRepository.insertOperation(record)
@@ -264,29 +283,32 @@ class EncryptViewModel @Inject constructor(
             try {
                 val outputNames = mutableListOf<String>()
                 when (state.mode) {
-                    EncryptMode.BATCH_PACK -> outputNames.addAll(batchEncrypt(state))
-                    EncryptMode.SEPARATE -> outputNames.addAll(separateEncrypt(state))
-                    else -> throw Exception("无效的加密模式")
+                    EncryptMode.BATCH_PACK -> outputNames.addAll(batchEncrypt(state, token))
+                    EncryptMode.SEPARATE -> outputNames.addAll(separateEncrypt(state, token))
+                    else -> throw Exception(context.getString(R.string.error_invalid_mode))
                 }
                 val outDir = getOutputDir()
                 operationRepository.updateOperation(record.copy(id = recordId, status = OperationStatus.SUCCESS, outputPath = outDir.absolutePath, outputFiles = outputNames))
-                _uiState.update { it.copy(isProcessing = false, result = "加密完成！共 ${outputNames.size} 个文件", progress = 1f, outputFiles = outputNames, outputDir = outDir.absolutePath) }
+                _uiState.update { it.copy(isProcessing = false, result = context.getString(R.string.encrypt_result_count, outputNames.size), progress = 1f, outputFiles = outputNames, outputDir = outDir.absolutePath) }
             } catch (e: Exception) {
-                operationRepository.updateOperation(record.copy(id = recordId, status = OperationStatus.FAILED, errorMessage = e.message))
-                _uiState.update { it.copy(isProcessing = false, error = "加密失败: ${e.message}") }
+                val cancelled = token.isCancelled
+                operationRepository.updateOperation(record.copy(id = recordId, status = if (cancelled) OperationStatus.CANCELLED else OperationStatus.FAILED, errorMessage = if (cancelled) null else "Encryption failed"))
+                _uiState.update { it.copy(isProcessing = false, phase = "", error = if (cancelled) null else context.getString(R.string.encrypt_failed), result = if (cancelled) context.getString(R.string.common_operation_cancelled) else null) }
+            } finally {
+                if (currentToken === token) currentToken = null
             }
         }
     }
 
     private suspend fun getStrategy(): DuplicateStrategy = settingsDataStore.getDuplicateStrategyOnce()
 
-    private suspend fun batchEncrypt(state: EncryptUiState): List<String> {
+    private suspend fun batchEncrypt(state: EncryptUiState, token: AgeCancellationToken): List<String> {
         val files = state.inputLeaves()
         val totalFiles = files.size
         val concurrency = settingsDataStore.getConcurrencyOnce()
 
         // Phase 1: Concurrent stream URIs to temp files
-        val phaseText = if (state.compressEnabled) "压缩中" else "打包中"
+        val phaseText = context.getString(if (state.compressEnabled) R.string.phase_compressing else R.string.phase_packing)
         _uiState.update { it.copy(progress = 0f, processedCount = 0, totalCount = totalFiles, phase = phaseText) }
         yield()
 
@@ -298,7 +320,7 @@ class EncryptViewModel @Inject constructor(
                 files.mapIndexed { index, file ->
                     async {
                         semaphore.withPermit {
-                            val temp = fileHelper.streamUriToTemp(file.uri, "src_$index")
+                            val temp = fileHelper.streamUriToTemp(file.uri, "src_$index") { token.isCancelled }
                             tempFiles[index] = temp
                             val done = doneCount.incrementAndGet()
                             _uiState.update { it.copy(processedCount = done, progress = done * 0.3f / totalFiles) }
@@ -313,30 +335,30 @@ class EncryptViewModel @Inject constructor(
             val pathsDelim = tempFiles.filterNotNull().joinToString("\n") { it.absolutePath }
             val namesDelim = files.joinToString("\n") { it.relativePath }
             if (state.compressEnabled) {
-                ageEngine.tarGzipFilesDelim(pathsDelim, namesDelim, tarFile.absolutePath)
+                ageEngine.tarGzipFilesDelim(pathsDelim, namesDelim, tarFile.absolutePath, token)
             } else {
-                ageEngine.tarFilesDelim(pathsDelim, namesDelim, tarFile.absolutePath)
+                ageEngine.tarFilesDelim(pathsDelim, namesDelim, tarFile.absolutePath, token)
             }
 
-            _uiState.update { it.copy(progress = 0.4f, phase = "压缩完成", processedCount = 0, totalCount = 1) }
+            _uiState.update { it.copy(progress = 0.4f, phase = context.getString(R.string.phase_compressed), processedCount = 0, totalCount = 1) }
             yield()
 
             // Phase 2: Streaming encrypt (40% → 90%)
             val encryptedTemp = File(fileHelper.getCacheDir(), "enc_${System.currentTimeMillis()}.tmp")
             try {
-                _uiState.update { it.copy(phase = "加密中") }
+                _uiState.update { it.copy(phase = context.getString(R.string.phase_encrypting)) }
                 if (state.usePassphrase) {
-                    ageEngine.encryptStreamToFile(tarFile.absolutePath, encryptedTemp.absolutePath, state.passphrase)
+                    ageEngine.encryptStreamToFile(tarFile.absolutePath, encryptedTemp.absolutePath, state.passphrase, token)
                 } else {
-                    ageEngine.encryptStreamToFileWithKey(tarFile.absolutePath, encryptedTemp.absolutePath, state.selectedPublicKey)
+                    ageEngine.encryptStreamToFileWithRecipient(tarFile.absolutePath, encryptedTemp.absolutePath, state.selectedPublicKey, token)
                 }
                 _uiState.update { it.copy(progress = 0.9f) }
                 yield()
 
                 // Phase 3: Write output (90% → 100%)
-                _uiState.update { it.copy(phase = "写入中") }
-                val outputName = writeOutputFile(state.outputFileName, encryptedTemp)
-                _uiState.update { it.copy(progress = 1f, processedCount = 1, totalCount = 1, successCount = 1, phase = "完成") }
+                _uiState.update { it.copy(phase = context.getString(R.string.phase_writing)) }
+                val outputName = writeOutputFile(state.outputFileName, encryptedTemp, token)
+                _uiState.update { it.copy(progress = 1f, processedCount = 1, totalCount = 1, successCount = 1, phase = context.getString(R.string.phase_complete)) }
                 return listOf(outputName)
             } finally {
                 fileHelper.deleteTempFile(tarFile)
@@ -347,7 +369,7 @@ class EncryptViewModel @Inject constructor(
         }
     }
 
-    private suspend fun separateEncrypt(state: EncryptUiState): List<String> {
+    private suspend fun separateEncrypt(state: EncryptUiState, token: AgeCancellationToken): List<String> {
         val concurrency = settingsDataStore.getConcurrencyOnce()
         val successCount = AtomicInteger(0)
         val failCount = AtomicInteger(0)
@@ -362,10 +384,11 @@ class EncryptViewModel @Inject constructor(
                 async {
                     semaphore.withPermit {
                         try {
-                            val actualName = encryptSeparateUnit(state, item, index)
+                            val actualName = encryptSeparateUnit(state, item, index, token)
                             successCount.incrementAndGet()
                             outputNames.add(actualName)
-                        } catch (_: Exception) {
+                        } catch (error: Exception) {
+                            if (token.isCancelled) throw error
                             failCount.incrementAndGet()
                         }
                         val done = processedCount.addAndGet(item.files.size)
@@ -385,23 +408,23 @@ class EncryptViewModel @Inject constructor(
         return outputNames.toList()
     }
 
-    private suspend fun encryptSeparateUnit(state: EncryptUiState, item: FileItem, index: Int): String {
+    private suspend fun encryptSeparateUnit(state: EncryptUiState, item: FileItem, index: Int, token: AgeCancellationToken): String {
         val sourceTemps = mutableListOf<File>()
         var tarTemp: File? = null
         var encryptedTemp: File? = null
         try {
             item.files.forEach { leaf ->
-                sourceTemps.add(fileHelper.streamUriToTemp(leaf.uri, "src"))
+                sourceTemps.add(fileHelper.streamUriToTemp(leaf.uri, "src") { token.isCancelled })
             }
 
             val tarPath = File(fileHelper.getCacheDir(), "single_${System.currentTimeMillis()}_${index}.tar")
             if (item.kind == FileSelectionKind.FOLDER) {
                 val pathsDelim = sourceTemps.joinToString("\n") { it.absolutePath }
                 val namesDelim = item.files.joinToString("\n") { it.relativePath }
-                ageEngine.tarFilesDelim(pathsDelim, namesDelim, tarPath.absolutePath)
+                ageEngine.tarFilesDelim(pathsDelim, namesDelim, tarPath.absolutePath, token)
             } else {
-                val leaf = item.files.firstOrNull() ?: throw Exception("空文件")
-                ageEngine.tarSingleFile(sourceTemps.first().absolutePath, leaf.name, tarPath.absolutePath)
+                val leaf = item.files.firstOrNull() ?: throw Exception(context.getString(R.string.error_empty_file))
+                ageEngine.tarSingleFile(sourceTemps.first().absolutePath, leaf.name, tarPath.absolutePath, token)
             }
             tarTemp = tarPath
             sourceTemps.forEach { fileHelper.deleteTempFile(it) }
@@ -409,13 +432,13 @@ class EncryptViewModel @Inject constructor(
 
             encryptedTemp = File(fileHelper.getCacheDir(), "enc_${System.currentTimeMillis()}_${index}.tmp")
             if (state.usePassphrase) {
-                ageEngine.encryptStreamToFile(tarTemp.absolutePath, encryptedTemp.absolutePath, state.passphrase)
+                ageEngine.encryptStreamToFile(tarTemp.absolutePath, encryptedTemp.absolutePath, state.passphrase, token)
             } else {
-                ageEngine.encryptStreamToFileWithKey(tarTemp.absolutePath, encryptedTemp.absolutePath, state.selectedPublicKey)
+                ageEngine.encryptStreamToFileWithRecipient(tarTemp.absolutePath, encryptedTemp.absolutePath, state.selectedPublicKey, token)
             }
 
             val outName = encryptedUnitRelativePath(item)
-            return writeOutputFile(outName, encryptedTemp)
+            return writeOutputFile(outName, encryptedTemp, token)
         } finally {
             sourceTemps.forEach { fileHelper.deleteTempFile(it) }
             tarTemp?.let { fileHelper.deleteTempFile(it) }
@@ -428,20 +451,23 @@ class EncryptViewModel @Inject constructor(
      * Uses SAF API for custom directory, direct file move for fallback.
      * Returns the actual output file name.
      */
-    private suspend fun writeOutputFile(fileName: String, srcFile: File): String {
+    private suspend fun writeOutputFile(fileName: String, srcFile: File, token: AgeCancellationToken): String {
         val customUriStr = customOutputDir.value
         if (customUriStr != null) {
             val customUri = customUriStr.toUri()
             val strategy = getStrategy()
-            return fileHelper.copyFileToSafRelative(customUri, "encrypted", fileName, srcFile, strategy)
-                ?: throw Exception("写入文件失败")
+            return fileHelper.copyFileToSafRelative(customUri, "encrypted", fileName, srcFile, strategy) { token.isCancelled }
+                ?: throw Exception(context.getString(R.string.error_write_file))
         } else {
             val strategy = getStrategy()
             val outDir = getOutputDir()
-            return fileHelper.copyFileToDirRelative(outDir, fileName, srcFile, strategy)
+            return fileHelper.copyFileToDirRelative(outDir, fileName, srcFile, strategy) { token.isCancelled }
         }
     }
 }
+
+private fun recipientHint(recipient: String): String =
+    "${if (recipient.startsWith("age1pq1")) "PQ" else "X25519"} ·${recipient.takeLast(8)}"
 
 private fun SelectedFileItem.toFileItem(): FileItem =
     FileItem(

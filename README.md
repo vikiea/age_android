@@ -1,31 +1,32 @@
 # Age Android
 
-Android native app wrapping the [age](https://filippo.io/age) encryption tool with streaming I/O, batch processing, and a local-first Compose interface.
+Android native app wrapping the [age](https://filippo.io/age) encryption tool with post-quantum keys, streaming I/O, cancellable batch processing, and a local-first adaptive Compose interface.
 
 ## Features
 
 - **Batch encryption**: Pack multiple files into tar/tar.gz, then encrypt as `.tar.gz.age` or `.tar.age`
 - **Separate encryption**: Encrypt individual files or selected subfolders as standalone `.tar.age` units (original extensions hidden)
 - **Folder tree handling**: Selected subfolders stay as removable units, with nested files shown and restored in a file-manager style tree
-- **Passphrase & public key encryption**: Support both scrypt passphrase and X25519 key pair
+- **Post-quantum by default**: Generate hybrid ML-KEM-768 + X25519 keys, with classic X25519 available explicitly
 - **Streaming I/O**: Entire pipeline uses streaming — handles 1GB+ files without OOM
 - **Go engine**: tar/tar.gz compression and age encryption via gomobile, ~32KB memory footprint
 - **Android-native intake and sharing**: Open files from the system picker, folders, or Android share intents, then share encrypted/decrypted outputs back out
 - **Custom save directory**: SAF-based directory picker with persistent URI permission and `encrypted/` / `decrypted/` subfolders
-- **User controls**: Theme mode, theme accent color, duplicate handling, compression, and processing concurrency are configurable from Settings
-- **Key management**: Generate, import, and manage X25519 key pairs
-- **Protected key detail**: Private keys can be revealed behind device biometric authentication when available
-- **Operation history**: Track all encryption/decryption operations and inspect operation details
-- **In-app updates and support**: Check GitHub Releases for APK updates, with optional donation QR support that does not change any app capability
-- **Liquid Glass-inspired UI**: Compose Material 3 surfaces with backdrop-aware glass components and graceful fallback on older renderers
+- **Secure key storage**: Private keys are encrypted with an Android Keystore AES-256-GCM key and stored outside Room in `noBackupFilesDir`
+- **Protected sensitive actions**: Revealing, copying, or exporting a private key requires strong biometrics or device credentials
+- **Cancellable work**: Tar, gzip, encryption, decryption, SAF copies, and output writes can be cancelled with partial-output cleanup
+- **Bilingual UI**: Follow the system language or choose English / Simplified Chinese in Settings
+- **Adaptive Material 3 UI**: Bottom navigation on phones, navigation rail on wider windows, dynamic color, and restrained Backdrop glass for navigation and overlays
+- **Detailed history**: Track authentication type, safe key hints, compression, duplicate policy, concurrency, success/failure, and cancellation
+- **Verified updates**: Select an ABI APK with Universal fallback, verify its GitHub SHA-256 digest and signing certificate, then hand off to Android's installer
 
 ## Architecture
 
 ```
 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
 │ Compose UI   │───▶│  ViewModel   │───▶│  Repository  │
-│ Material3 +  │    │  MVVM + Flow │    │  Room + SAF  │
-│ Glass system │    │              │    │              │
+│ Material 3 + │    │  MVVM + Flow │    │ Room + SAF + │
+│ Backdrop     │    │              │    │ Keystore     │
 └──────────────┘    └──────┬───────┘    └──────────────┘
                            │
               ┌────────────▼────────────┐
@@ -51,12 +52,12 @@ Android native app wrapping the [age](https://filippo.io/age) encryption tool wi
 
 | Layer | Technology |
 |-------|-----------|
-| App version | 4.0.0 (`versionCode` 14) |
-| Language | Kotlin 2.3.10, Go 1.25 |
-| Android | compileSdk 36, minSdk 26, targetSdk 36 |
-| UI | Jetpack Compose BOM 2026.02.00, Material3, `io.github.kyant0:backdrop` |
-| Navigation | Navigation Compose 2.8.5 |
-| DI | Hilt 2.58, Hilt Navigation Compose 1.3.0 |
+| App version | 5.0.0 (`versionCode` 15) |
+| Language | Kotlin 2.4.10, Go 1.25 |
+| Android | compileSdk 37, minSdk 26, targetSdk 36 |
+| UI | Jetpack Compose BOM 2026.08.00, Material 3 1.4.0, Backdrop 2.0.1 |
+| Navigation | Navigation Compose 2.10.0 + Material 3 Adaptive Navigation Suite |
+| DI | Hilt 2.60.1, Hilt Navigation Compose 1.4.0 |
 | DB | Room 2.8.4 |
 | Settings | DataStore Preferences 1.1.1 |
 | File / archive | AndroidX DocumentFile, Apache Commons Compress, FileProvider |
@@ -64,13 +65,13 @@ Android native app wrapping the [age](https://filippo.io/age) encryption tool wi
 | Security UX | AndroidX Biometric 1.1.0 for private-key reveal |
 | Crypto | [filippo.io/age](https://filippo.io/age) 1.3.1 |
 | Native | gomobile → AAR / extracted JNI libs |
-| Build | Gradle 8.14, Android Gradle Plugin 8.13.2 |
+| Build | Gradle 9.4.1, Android Gradle Plugin 9.2.0 |
 
 ## Build
 
 ### Prerequisites
 
-- Android SDK (compile SDK 36, min SDK 26, target SDK 36)
+- Android SDK (compile SDK 37, min SDK 26, target SDK 36)
 - Go 1.25+ with gomobile (`go install golang.org/x/mobile/cmd/gomobile@latest`)
 - NDK 27+ (for gomobile)
 
@@ -109,7 +110,7 @@ All files are tar-packed before encryption to hide original file extensions. In 
 
 ## Privacy
 
-Age Android does not collect, transmit, or store any user data. All operations are performed locally on your device.
+Age Android does not collect or transmit user data. Operations and history remain local. Private keys are wrapped by Android Keystore and stored in `noBackupFilesDir`; they are intentionally not restored to another device, so restored database entries fall back to public-key-only records.
 
 [Privacy Policy](https://vikiea.github.io/age_android/privacy/)
 

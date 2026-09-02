@@ -6,15 +6,32 @@
 package io.github.vikiea.age.engine
 
 import io.github.vikiea.age.core.age.AgeEngine
+import io.github.vikiea.age.core.age.AgeCancellationToken
 import io.github.vikiea.age.engine.ageengine.Ageengine
+import io.github.vikiea.age.engine.ageengine.CancelToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class AgeEngineImpl : AgeEngine {
 
-    override suspend fun generateKeyPair(): Pair<String, String> = withContext(Dispatchers.IO) {
-        val result = Ageengine.generateKeyPair()
+    private class GoCancellationToken(val delegate: CancelToken) : AgeCancellationToken {
+        override fun cancel() = delegate.cancel()
+        override val isCancelled: Boolean get() = delegate.isCancelled
+    }
+
+    override fun newCancellationToken(): AgeCancellationToken =
+        GoCancellationToken(Ageengine.newCancelToken())
+
+    private fun AgeCancellationToken?.goToken(): CancelToken? =
+        (this as? GoCancellationToken)?.delegate
+
+    override suspend fun generateKeyPair(keyType: String): Pair<String, String> = withContext(Dispatchers.IO) {
+        val result = Ageengine.generateKeyPair(keyType)
         Pair(result.publicKey, result.privateKey)
+    }
+
+    override suspend fun recipientForIdentity(identity: String): String = withContext(Dispatchers.IO) {
+        Ageengine.recipientForIdentity(identity)
     }
 
     override suspend fun encryptWithPassphrase(data: ByteArray, passphrase: String): ByteArray =
@@ -22,9 +39,9 @@ class AgeEngineImpl : AgeEngine {
             Ageengine.encryptWithPassphrase(data, passphrase)
         }
 
-    override suspend fun encryptWithPublicKey(data: ByteArray, publicKey: String): ByteArray =
+    override suspend fun encryptWithRecipient(data: ByteArray, recipient: String): ByteArray =
         withContext(Dispatchers.IO) {
-            Ageengine.encryptWithPublicKey(data, publicKey)
+            Ageengine.encryptWithRecipient(data, recipient)
         }
 
     override suspend fun decryptWithPassphrase(data: ByteArray, passphrase: String): ByteArray =
@@ -32,9 +49,9 @@ class AgeEngineImpl : AgeEngine {
             Ageengine.decryptWithPassphrase(data, passphrase)
         }
 
-    override suspend fun decryptWithPrivateKey(data: ByteArray, privateKey: String): ByteArray =
+    override suspend fun decryptWithIdentity(data: ByteArray, identity: String): ByteArray =
         withContext(Dispatchers.IO) {
-            Ageengine.decryptWithPrivateKey(data, privateKey)
+            Ageengine.decryptWithIdentity(data, identity)
         }
 
     override suspend fun readFile(path: String): ByteArray = withContext(Dispatchers.IO) {
@@ -45,31 +62,31 @@ class AgeEngineImpl : AgeEngine {
         Ageengine.writeFile(path, data)
     }
 
-    override suspend fun encryptStreamToFile(inputPath: String, outputPath: String, passphrase: String) = withContext(Dispatchers.IO) {
-        Ageengine.encryptStreamToFile(inputPath, outputPath, passphrase)
+    override suspend fun encryptStreamToFile(inputPath: String, outputPath: String, passphrase: String, token: AgeCancellationToken?) = withContext(Dispatchers.IO) {
+        Ageengine.encryptStreamToFile(inputPath, outputPath, passphrase, token.goToken())
     }
 
-    override suspend fun encryptStreamToFileWithKey(inputPath: String, outputPath: String, publicKey: String) = withContext(Dispatchers.IO) {
-        Ageengine.encryptStreamToFileWithKey(inputPath, outputPath, publicKey)
+    override suspend fun encryptStreamToFileWithRecipient(inputPath: String, outputPath: String, recipient: String, token: AgeCancellationToken?) = withContext(Dispatchers.IO) {
+        Ageengine.encryptStreamToFileWithRecipient(inputPath, outputPath, recipient, token.goToken())
     }
 
-    override suspend fun decryptStreamToFile(inputPath: String, outputPath: String, passphrase: String) = withContext(Dispatchers.IO) {
-        Ageengine.decryptStreamToFile(inputPath, outputPath, passphrase)
+    override suspend fun decryptStreamToFile(inputPath: String, outputPath: String, passphrase: String, token: AgeCancellationToken?) = withContext(Dispatchers.IO) {
+        Ageengine.decryptStreamToFile(inputPath, outputPath, passphrase, token.goToken())
     }
 
-    override suspend fun decryptStreamToFileWithKey(inputPath: String, outputPath: String, privateKey: String) = withContext(Dispatchers.IO) {
-        Ageengine.decryptStreamToFileWithKey(inputPath, outputPath, privateKey)
+    override suspend fun decryptStreamToFileWithIdentity(inputPath: String, outputPath: String, identity: String, token: AgeCancellationToken?) = withContext(Dispatchers.IO) {
+        Ageengine.decryptStreamToFileWithIdentity(inputPath, outputPath, identity, token.goToken())
     }
 
-    override suspend fun tarSingleFile(filePath: String, entryName: String, outputPath: String) = withContext(Dispatchers.IO) {
-        Ageengine.tarSingleFile(filePath, entryName, outputPath)
+    override suspend fun tarSingleFile(filePath: String, entryName: String, outputPath: String, token: AgeCancellationToken?) = withContext(Dispatchers.IO) {
+        Ageengine.tarSingleFile(filePath, entryName, outputPath, token.goToken())
     }
 
-    override suspend fun tarFilesDelim(filePathsDelim: String, fileNamesDelim: String, outputPath: String) = withContext(Dispatchers.IO) {
-        Ageengine.tarFilesDelim(filePathsDelim, fileNamesDelim, outputPath)
+    override suspend fun tarFilesDelim(filePathsDelim: String, fileNamesDelim: String, outputPath: String, token: AgeCancellationToken?) = withContext(Dispatchers.IO) {
+        Ageengine.tarFilesDelim(filePathsDelim, fileNamesDelim, outputPath, token.goToken())
     }
 
-    override suspend fun tarGzipFilesDelim(filePathsDelim: String, fileNamesDelim: String, outputPath: String) = withContext(Dispatchers.IO) {
-        Ageengine.tarGzipFilesDelim(filePathsDelim, fileNamesDelim, outputPath)
+    override suspend fun tarGzipFilesDelim(filePathsDelim: String, fileNamesDelim: String, outputPath: String, token: AgeCancellationToken?) = withContext(Dispatchers.IO) {
+        Ageengine.tarGzipFilesDelim(filePathsDelim, fileNamesDelim, outputPath, token.goToken())
     }
 }

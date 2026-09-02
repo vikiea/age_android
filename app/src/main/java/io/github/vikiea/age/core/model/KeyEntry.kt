@@ -8,20 +8,16 @@ package io.github.vikiea.age.core.model
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-enum class KeyType {
-    AGE_KEY,
-    SSH_KEY,
-    PASSPHRASE
-}
+enum class AgeKeyType { POST_QUANTUM, X25519 }
 
 @Entity(tableName = "key_entries")
 data class KeyEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val publicKey: String,
-    val privateKey: String? = null,
-    val keyType: KeyType,
-    val hasPrivateKey: Boolean,
-    val keystoreAlias: String? = null,
+    val ageKeyType: AgeKeyType,
+    val secretRef: String? = null,
     val createdAt: Long = System.currentTimeMillis()
-)
+) {
+    val hasPrivateKey: Boolean get() = secretRef != null
+}

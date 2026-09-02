@@ -1,6 +1,9 @@
 package io.github.vikiea.age.feature.encrypt
 
+import android.content.Context
+import io.github.vikiea.age.R
 import io.github.vikiea.age.core.age.AgeEngine
+import io.github.vikiea.age.core.age.AgeCancellationToken
 import io.github.vikiea.age.core.data.KeyRepository
 import io.github.vikiea.age.core.data.OperationRepository
 import io.github.vikiea.age.core.data.DuplicateStrategy
@@ -37,6 +40,10 @@ class EncryptViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         ageEngine = mockk()
+        every { ageEngine.newCancellationToken() } returns mockk<AgeCancellationToken> {
+            every { isCancelled } returns false
+            every { cancel() } just Runs
+        }
         keyRepository = mockk { every { getAllKeys() } returns flowOf(emptyList()) }
         operationRepository = mockk { coEvery { insertOperation(any()) } returns 1L; coEvery { updateOperation(any()) } just Runs }
         fileHelper = mockk()
@@ -55,7 +62,10 @@ class EncryptViewModelTest {
             coEvery { setEncryptUsePassphrase(any()) } just Runs
             coEvery { setSelectedPublicKey(any()) } just Runs
         }
-        viewModel = EncryptViewModel(ageEngine, keyRepository, operationRepository, fileHelper, settingsDataStore)
+        val context = mockk<Context>(relaxed = true) {
+            every { getString(R.string.error_select_files) } returns "请先选择文件"
+        }
+        viewModel = EncryptViewModel(ageEngine, keyRepository, operationRepository, fileHelper, settingsDataStore, context)
     }
 
     @After
@@ -149,14 +159,14 @@ class EncryptViewModelTest {
             )
         )
         every { fileHelper.getCacheDir() } returns cacheDir
-        every { fileHelper.streamUriToTemp(firstUri, "src") } returns firstTemp
-        every { fileHelper.streamUriToTemp(secondUri, "src") } returns secondTemp
+        every { fileHelper.streamUriToTemp(firstUri, "src", any()) } returns firstTemp
+        every { fileHelper.streamUriToTemp(secondUri, "src", any()) } returns secondTemp
         every { fileHelper.deleteTempFile(any()) } answers { firstArg<File>().delete(); Unit }
         every { fileHelper.getFallbackEncryptedDir() } returns File(cacheDir, "encrypted")
-        every { fileHelper.copyFileToDirRelative(any(), "docs.tar.age", any(), DuplicateStrategy.RENAME) } returns "docs.tar.age"
-        coEvery { ageEngine.tarFilesDelim(any(), any(), any()) } just Runs
-        coEvery { ageEngine.encryptStreamToFile(any(), any(), "pw") } just Runs
-        coEvery { ageEngine.tarSingleFile(any(), any(), any()) } just Runs
+        every { fileHelper.copyFileToDirRelative(any(), "docs.tar.age", any(), DuplicateStrategy.RENAME, any()) } returns "docs.tar.age"
+        coEvery { ageEngine.tarFilesDelim(any(), any(), any(), any()) } just Runs
+        coEvery { ageEngine.encryptStreamToFile(any(), any(), "pw", any()) } just Runs
+        coEvery { ageEngine.tarSingleFile(any(), any(), any(), any()) } just Runs
 
         viewModel.addFilesFromFolder(dirUri)
         viewModel.setMode(EncryptMode.SEPARATE)
@@ -170,10 +180,11 @@ class EncryptViewModelTest {
             ageEngine.tarFilesDelim(
                 "${firstTemp.absolutePath}\n${secondTemp.absolutePath}",
                 "docs/a.txt\ndocs/spec/b.txt",
+                any(),
                 any()
             )
         }
-        coVerify(exactly = 0) { ageEngine.tarSingleFile(any(), any(), any()) }
+        coVerify(exactly = 0) { ageEngine.tarSingleFile(any(), any(), any(), any()) }
     }
 
     @Test
@@ -184,12 +195,12 @@ class EncryptViewModelTest {
 
         every { fileHelper.getFileName(uri) } returns "plain.txt"
         every { fileHelper.getCacheDir() } returns cacheDir
-        every { fileHelper.streamUriToTemp(uri, "src_0") } returns sourceTemp
+        every { fileHelper.streamUriToTemp(uri, "src_0", any()) } returns sourceTemp
         every { fileHelper.deleteTempFile(any()) } answers { firstArg<File>().delete(); Unit }
         every { fileHelper.getFallbackEncryptedDir() } returns File(cacheDir, "encrypted")
-        every { fileHelper.copyFileToDirRelative(any(), "archive.tar.gz.age", any(), DuplicateStrategy.RENAME) } returns "archive.tar.gz.age"
-        coEvery { ageEngine.tarGzipFilesDelim(any(), any(), any()) } just Runs
-        coEvery { ageEngine.encryptStreamToFile(any(), any(), "pw") } just Runs
+        every { fileHelper.copyFileToDirRelative(any(), "archive.tar.gz.age", any(), DuplicateStrategy.RENAME, any()) } returns "archive.tar.gz.age"
+        coEvery { ageEngine.tarGzipFilesDelim(any(), any(), any(), any()) } just Runs
+        coEvery { ageEngine.encryptStreamToFile(any(), any(), "pw", any()) } just Runs
 
         viewModel.addFiles(listOf(uri))
         viewModel.setPassphrase("pw")

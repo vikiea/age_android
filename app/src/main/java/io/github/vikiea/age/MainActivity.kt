@@ -15,6 +15,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.fragment.app.FragmentActivity
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
+import androidx.compose.runtime.LaunchedEffect
+import io.github.vikiea.age.core.data.AppLanguage
 import io.github.vikiea.age.core.data.SettingsDataStore
 import io.github.vikiea.age.core.data.ThemeAccent
 import io.github.vikiea.age.core.data.ThemeMode
@@ -24,7 +29,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class MainActivity : FragmentActivity() {
+class MainActivity : AppCompatActivity() {
 
     @Inject
     lateinit var settingsDataStore: SettingsDataStore
@@ -39,10 +44,21 @@ class MainActivity : FragmentActivity() {
             val themeMode by settingsDataStore.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
             val themeAccent by settingsDataStore.themeAccent.collectAsState(initial = ThemeAccent.LIQUID_DEFAULT)
             val glassEffectEnabled by settingsDataStore.glassEffectEnabled.collectAsState(initial = true)
+            val dynamicColorEnabled by settingsDataStore.dynamicColorEnabled.collectAsState(initial = false)
+            val appLanguage by settingsDataStore.appLanguage.collectAsState(initial = AppLanguage.SYSTEM)
+            LaunchedEffect(appLanguage) {
+                val tags = when (appLanguage) {
+                    AppLanguage.SYSTEM -> ""
+                    AppLanguage.ZH_CN -> "zh-CN"
+                    AppLanguage.ENGLISH -> "en"
+                }
+                AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(tags))
+            }
             AgeAndroidTheme(
                 themeMode = themeMode,
                 themeAccent = themeAccent,
-                glassEffectEnabled = glassEffectEnabled
+                glassEffectEnabled = glassEffectEnabled,
+                dynamicColor = dynamicColorEnabled
             ) {
                 AppNavigation(
                     sharedUris = sharedUris.value,

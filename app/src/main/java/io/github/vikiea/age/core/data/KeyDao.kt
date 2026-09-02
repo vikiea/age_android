@@ -17,6 +17,12 @@ interface KeyDao {
     @Query("SELECT * FROM key_entries WHERE id = :id")
     suspend fun getKeyById(id: Long): KeyEntry?
 
+    @Query("SELECT * FROM key_entries")
+    suspend fun getAllKeysOnce(): List<KeyEntry>
+
+    @Query("SELECT * FROM key_entries WHERE publicKey = :publicKey LIMIT 1")
+    suspend fun getKeyByPublicKey(publicKey: String): KeyEntry?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertKey(key: KeyEntry): Long
 
@@ -28,4 +34,7 @@ interface KeyDao {
 
     @Query("DELETE FROM key_entries WHERE id = :id")
     suspend fun deleteKeyById(id: Long)
+
+    @Query("UPDATE key_entries SET secretRef = NULL WHERE id = :id")
+    suspend fun clearSecretRef(id: Long)
 }

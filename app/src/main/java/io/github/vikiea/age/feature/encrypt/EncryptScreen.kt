@@ -26,8 +26,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import android.net.Uri
+import io.github.vikiea.age.R
 import io.github.vikiea.age.core.model.EncryptMode
 import io.github.vikiea.age.core.model.buildFileTree
 import io.github.vikiea.age.ui.components.FilePathTreeView
@@ -77,11 +79,11 @@ fun EncryptScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         GlassTopBar(
-            title = "加密工作台",
+            title = stringResource(R.string.encrypt_title),
             backdrop = backdrop,
             actions = {
                 IconButton(onClick = onNavigateToSettings) {
-                    Icon(Icons.Default.Settings, contentDescription = "设置")
+                    Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title))
                 }
             }
         )
@@ -94,12 +96,12 @@ fun EncryptScreen(
                 .padding(bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            GlassCard(modifier = Modifier.fillMaxWidth(), backdrop = backdrop, emphasis = GlassEmphasis.Normal) {
-                SectionTitle("文件")
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SectionTitle(stringResource(R.string.input_files))
                 GlassSegmentedControl(
                     options = listOf(
-                        GlassSegmentOption(EncryptMode.BATCH_PACK, "打包加密"),
-                        GlassSegmentOption(EncryptMode.SEPARATE, "分别加密")
+                        GlassSegmentOption(EncryptMode.BATCH_PACK, stringResource(R.string.batch_encrypt)),
+                        GlassSegmentOption(EncryptMode.SEPARATE, stringResource(R.string.separate_encrypt))
                     ),
                     selectedValue = uiState.mode,
                     onSelected = { viewModel.setMode(it) },
@@ -111,12 +113,12 @@ fun EncryptScreen(
                     GlassOutlinedButton(onClick = { filePicker.launch(arrayOf("*/*")) }, modifier = Modifier.weight(1f), enabled = !uiState.isProcessing) {
                         Icon(Icons.Default.Add, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("添加文件")
+                        Text(stringResource(R.string.add_files))
                     }
                     GlassOutlinedButton(onClick = { folderPicker.launch(null) }, modifier = Modifier.weight(1f), enabled = !uiState.isProcessing) {
                         Icon(Icons.Default.FolderOpen, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("选择文件夹")
+                        Text(stringResource(R.string.select_folder))
                     }
                 }
 
@@ -124,9 +126,9 @@ fun EncryptScreen(
                     GlassTonalSurface(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
-                                Text("已选项目 (${uiState.files.sumOf { it.files.size }} 个文件)", style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+                                Text(stringResource(R.string.selected_file_count, uiState.files.sumOf { it.files.size }), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
                                 GlassTextButton(onClick = { viewModel.clearFiles() }, enabled = !uiState.isProcessing) {
-                                    Text("清空", style = MaterialTheme.typography.labelSmall)
+                                    Text(stringResource(R.string.common_clear), style = MaterialTheme.typography.labelSmall)
                                 }
                             }
                             uiState.files.forEachIndexed { index, file ->
@@ -141,7 +143,7 @@ fun EncryptScreen(
                                         modifier = Modifier.weight(1f)
                                     )
                                     IconButton(onClick = { viewModel.removeFile(index) }, enabled = !uiState.isProcessing, modifier = Modifier.size(32.dp)) {
-                                        Icon(Icons.Default.Close, contentDescription = "移除", modifier = Modifier.size(18.dp))
+                                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.common_remove), modifier = Modifier.size(18.dp))
                                     }
                                 }
                             }
@@ -149,12 +151,13 @@ fun EncryptScreen(
                     }
                 }
             }
-            GlassCard(modifier = Modifier.fillMaxWidth(), backdrop = backdrop, emphasis = GlassEmphasis.Normal) {
-                SectionTitle("加密方式")
+            HorizontalDivider()
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SectionTitle(stringResource(R.string.encryption_method))
                 GlassSegmentedControl(
                     options = listOf(
-                        GlassSegmentOption(true, "密码加密"),
-                        GlassSegmentOption(false, "公钥加密")
+                        GlassSegmentOption(true, stringResource(R.string.passphrase_encrypt)),
+                        GlassSegmentOption(false, stringResource(R.string.recipient_encrypt))
                     ),
                     selectedValue = uiState.usePassphrase,
                     onSelected = { viewModel.setUsePassphrase(it) },
@@ -167,13 +170,13 @@ fun EncryptScreen(
                     GlassTextField(
                         value = uiState.passphrase,
                         onValueChange = { viewModel.setPassphrase(it) },
-                        label = "输入密码",
+                        label = stringResource(R.string.enter_passphrase),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         visualTransformation = if (showPass) VisualTransformation.None else PasswordVisualTransformation(),
                         trailingIcon = {
                             IconButton(onClick = { showPass = !showPass }) {
-                                Icon(if (showPass) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = if (showPass) "隐藏" else "显示")
+                                Icon(if (showPass) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = stringResource(if (showPass) R.string.common_hide else R.string.common_show))
                             }
                         }
                     )
@@ -181,7 +184,7 @@ fun EncryptScreen(
                     if (keys.isNotEmpty()) {
                         var expanded by remember { mutableStateOf(false) }
                         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-                            GlassTextField(value = uiState.selectedPublicKey, onValueChange = { viewModel.setSelectedPublicKey(it) }, label = "公钥", modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) })
+                            GlassTextField(value = uiState.selectedPublicKey, onValueChange = { viewModel.setSelectedPublicKey(it) }, label = stringResource(R.string.public_key), modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) })
                             ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                                 keys.forEach { key ->
                                     DropdownMenuItem(text = { Text("${key.name}: ${key.publicKey.take(20)}...") }, onClick = { viewModel.setSelectedPublicKey(key.publicKey); expanded = false })
@@ -189,18 +192,19 @@ fun EncryptScreen(
                             }
                         }
                     } else {
-                        GlassTextField(value = uiState.selectedPublicKey, onValueChange = { viewModel.setSelectedPublicKey(it) }, label = "输入公钥 (age1xxx)", modifier = Modifier.fillMaxWidth(), singleLine = true)
+                        GlassTextField(value = uiState.selectedPublicKey, onValueChange = { viewModel.setSelectedPublicKey(it) }, label = stringResource(R.string.enter_public_key), modifier = Modifier.fillMaxWidth(), singleLine = true)
                     }
                 }
             }
 
             if (uiState.mode == EncryptMode.BATCH_PACK) {
-                GlassCard(modifier = Modifier.fillMaxWidth(), backdrop = backdrop, emphasis = GlassEmphasis.Normal) {
-                    SectionTitle("输出")
+                HorizontalDivider()
+                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SectionTitle(stringResource(R.string.output))
                     GlassTextField(
                         value = uiState.outputFileBaseName,
                         onValueChange = { viewModel.setOutputFileBaseName(it) },
-                        label = "输出文件名",
+                        label = stringResource(R.string.output_file_name),
                         suffix = { Text(if (uiState.compressEnabled) ".tar.gz.age" else ".tar.age") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
@@ -216,14 +220,17 @@ fun EncryptScreen(
                     val statusText = if (uiState.phase.isNotEmpty()) {
                         "${uiState.phase} ${uiState.processedCount}/${uiState.totalCount}"
                     } else {
-                        "处理中: ${uiState.processedCount}/${uiState.totalCount} (成功: ${uiState.successCount}, 失败: ${uiState.failCount})"
+                        stringResource(R.string.processing_summary, uiState.processedCount, uiState.totalCount, uiState.successCount, uiState.failCount)
                     }
                     Text(statusText)
+                    GlassOutlinedButton(onClick = viewModel::cancelOperation, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.common_cancel_task))
+                    }
                 }
 
                 uiState.result?.let {
                     GlassStatusPanel(
-                        title = "加密完成",
+                        title = stringResource(R.string.encrypt_complete),
                         tone = StatusTone.Success,
                         onDismiss = { viewModel.clearResult() },
                         actions = {
@@ -233,12 +240,12 @@ fun EncryptScreen(
                             ) {
                                 Icon(Icons.Default.Share, contentDescription = null)
                                 Spacer(Modifier.width(4.dp))
-                                Text("分享文件")
+                                Text(stringResource(R.string.common_share_files))
                             }
                         }
                     ) {
                         Text(it)
-                        uiState.outputDir?.let { dir -> Text("目录: $dir", style = MaterialTheme.typography.bodySmall) }
+                        uiState.outputDir?.let { dir -> Text(stringResource(R.string.common_directory, dir), style = MaterialTheme.typography.bodySmall) }
                         if (uiState.outputFiles.isNotEmpty()) {
                             FilePathTreeView(paths = uiState.outputFiles)
                         }
@@ -247,7 +254,7 @@ fun EncryptScreen(
 
                 uiState.error?.let {
                     GlassStatusPanel(
-                        title = "加密失败",
+                        title = stringResource(R.string.encrypt_failed),
                         tone = StatusTone.Error,
                         onDismiss = { viewModel.clearError() }
                     ) {
@@ -255,12 +262,14 @@ fun EncryptScreen(
                     }
                 }
 
-                GlassButton(
-                    onClick = { viewModel.startEncrypt() },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !uiState.isProcessing && uiState.result == null
-                ) {
-                    Text("开始加密")
+                if (!uiState.isProcessing) {
+                    GlassButton(
+                        onClick = { viewModel.startEncrypt() },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = uiState.result == null
+                    ) {
+                        Text(stringResource(R.string.start_encrypt))
+                    }
                 }
             }
         }

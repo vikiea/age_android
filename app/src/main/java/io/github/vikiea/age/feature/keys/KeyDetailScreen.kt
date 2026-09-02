@@ -6,6 +6,8 @@
 package io.github.vikiea.age.feature.keys
 
 import android.content.ClipData
+import android.content.Intent
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
@@ -28,6 +30,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,20 +45,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import io.github.vikiea.age.R
 import io.github.vikiea.age.core.model.KeyEntry
 import io.github.vikiea.age.ui.glass.GlassBackdrop
 import io.github.vikiea.age.ui.glass.GlassButton
 import io.github.vikiea.age.ui.glass.GlassDialog
-import io.github.vikiea.age.ui.glass.GlassEmphasis
 import io.github.vikiea.age.ui.glass.GlassStatusPanel
-import io.github.vikiea.age.ui.glass.GlassSurface
 import io.github.vikiea.age.ui.glass.GlassTextButton
 import io.github.vikiea.age.ui.glass.GlassTextField
 import io.github.vikiea.age.ui.glass.GlassTopBar
@@ -78,7 +82,16 @@ fun KeyDetailScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
-    var privateKeyRevealed by remember { mutableStateOf(false) }
+    val locale = LocalConfiguration.current.locales[0]
+    val publicKeyLabel = stringResource(R.string.public_key)
+    val privateKeyLabel = stringResource(R.string.private_key)
+    var privateKeyMaterial by remember(keyId) { mutableStateOf<String?>(null) }
+    val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+    val canAuthenticate = remember(context) {
+        BiometricManager.from(context).canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS
+    }
+    val authenticateTitle = stringResource(R.string.authenticate_title)
+    val authenticateSubtitle = stringResource(R.string.authenticate_subtitle)
 
     val createDocLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain")
@@ -106,33 +119,31 @@ fun KeyDetailScreen(
         }
         val biometricPrompt = BiometricPrompt(activity, executor, callback)
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("验证身份")
-            .setSubtitle("查看私钥前需要验证身份")
-            .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+            .setTitle(authenticateTitle)
+            .setSubtitle(authenticateSubtitle)
+            .setAllowedAuthenticators(authenticators)
             .build()
         biometricPrompt.authenticate(promptInfo)
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
         GlassTopBar(
-            title = key?.name ?: "密钥详情",
+            title = key?.name ?: stringResource(R.string.key_detail),
             backdrop = backdrop,
             navigationIcon = {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                 }
             }
         )
 
         if (key == null) {
-            GlassSurface(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                backdrop = backdrop,
-                emphasis = GlassEmphasis.Normal
             ) {
-                Text("密钥未找到", modifier = Modifier.padding(16.dp))
+                Text(stringResource(R.string.key_not_found), modifier = Modifier.padding(16.dp))
             }
             return@Column
         }
@@ -147,7 +158,7 @@ fun KeyDetailScreen(
         ) {
             uiState.error?.let { message ->
                 GlassStatusPanel(
-                    title = "操作失败",
+                    title = stringResource(R.string.common_operation_failed),
                     tone = StatusTone.Error,
                     onDismiss = { viewModel.clearMessages() }
                 ) {
@@ -157,7 +168,7 @@ fun KeyDetailScreen(
 
             uiState.success?.let { message ->
                 GlassStatusPanel(
-                    title = "操作完成",
+                    title = stringResource(R.string.common_operation_complete),
                     tone = StatusTone.Success,
                     onDismiss = { viewModel.clearMessages() }
                 ) {
@@ -166,100 +177,93 @@ fun KeyDetailScreen(
             }
 
             KeyTextSection(
-                title = "公钥",
+                title = publicKeyLabel,
                 value = key.publicKey,
-                onCopy = { coroutineScope.launch { clipboard.setPlainText("公钥", key.publicKey) } },
+                onCopy = { coroutineScope.launch { clipboard.setPlainText(publicKeyLabel, key.publicKey) } },
                 backdrop = backdrop
             )
 
-            GlassSurface(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                backdrop = backdrop,
-                emphasis = GlassEmphasis.Normal
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        SectionTitle("信息", modifier = Modifier.weight(1f))
+                        SectionTitle(stringResource(R.string.key_info), modifier = Modifier.weight(1f))
                         IconButton(onClick = { viewModel.showRenameDialog(key) }, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Default.Edit, contentDescription = "重命名", modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.common_rename), modifier = Modifier.size(18.dp))
                         }
                     }
-                    InfoRow("类型", key.keyType.name)
-                    InfoRow("有私钥", if (key.hasPrivateKey) "是" else "否")
+                    HorizontalDivider()
+                    InfoRow(stringResource(R.string.key_type), if (key.ageKeyType == io.github.vikiea.age.core.model.AgeKeyType.POST_QUANTUM) "ML-KEM-768 + X25519" else "X25519")
+                    InfoRow(stringResource(R.string.has_private_key), stringResource(if (key.hasPrivateKey) R.string.common_yes else R.string.common_no))
                     InfoRow(
-                        "创建时间",
-                        SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(key.createdAt)
+                        stringResource(R.string.created_at),
+                        SimpleDateFormat("yyyy-MM-dd HH:mm", locale).format(key.createdAt)
                     )
-                }
             }
 
-            key.privateKey?.let { privateKey ->
-                GlassSurface(
+            if (key.hasPrivateKey) {
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    backdrop = backdrop,
-                    emphasis = GlassEmphasis.Normal
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        SectionTitle("私钥")
-                        if (privateKeyRevealed) {
+                        SectionTitle(stringResource(R.string.private_key))
+                        HorizontalDivider()
+                        if (privateKeyMaterial != null) {
                             Row(verticalAlignment = Alignment.Top) {
                                 Text(
-                                    text = privateKey,
+                                    text = privateKeyMaterial.orEmpty(),
                                     modifier = Modifier.weight(1f),
                                     style = MaterialTheme.typography.bodyMedium
                                 )
-                                IconButton(onClick = { coroutineScope.launch { clipboard.setPlainText("私钥", privateKey) } }) {
-                                    Icon(Icons.Default.ContentCopy, contentDescription = "复制")
+                                IconButton(onClick = {
+                                    authenticate {
+                                        viewModel.withPrivateKey(key.id) { privateKey ->
+                                            coroutineScope.launch { clipboard.setPlainText(privateKeyLabel, privateKey) }
+                                        }
+                                    }
+                                }) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.common_copy))
                                 }
                             }
                         } else {
                             GlassButton(
-                                onClick = { authenticate { privateKeyRevealed = true } },
+                                onClick = {
+                                    if (canAuthenticate) authenticate {
+                                        viewModel.withPrivateKey(key.id) { privateKeyMaterial = it }
+                                    } else context.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
+                                },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Icon(Icons.Default.Lock, contentDescription = null)
                                 Spacer(Modifier.width(8.dp))
-                                Text("验证身份以查看私钥")
+                                Text(stringResource(if (canAuthenticate) R.string.authenticate_to_view_private else R.string.configure_lock_to_view))
                             }
                         }
-                    }
                 }
             }
 
-            GlassSurface(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                backdrop = backdrop,
-                emphasis = GlassEmphasis.Subtle
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    SectionTitle("导出")
+                    SectionTitle(stringResource(R.string.common_export))
+                    HorizontalDivider()
                     GlassButton(
                         onClick = {
-                            if (key.privateKey != null && !privateKeyRevealed) {
-                                authenticate { viewModel.prepareExport(key, true) }
-                            } else {
-                                viewModel.prepareExport(key, key.privateKey != null)
-                            }
+                            if (key.hasPrivateKey && canAuthenticate) authenticate { viewModel.prepareExport(key, true) }
+                            else if (key.hasPrivateKey) context.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
+                            else viewModel.prepareExport(key, false)
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("导出密钥文件")
+                        Text(stringResource(R.string.export_key_file))
                     }
                     Text(
-                        text = "保存为 age 格式密钥文件，可导入到其他 age 工具中使用",
+                        text = stringResource(R.string.export_key_description),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }
             }
         }
     }
@@ -273,23 +277,23 @@ fun KeyDetailScreen(
 
     if (uiState.showRenameDialog) {
         GlassDialog(
-            title = "重命名密钥",
+            title = stringResource(R.string.rename_key),
             onDismissRequest = { viewModel.hideRenameDialog() },
             backdrop = backdrop,
             actions = {
                 GlassTextButton(onClick = { viewModel.hideRenameDialog() }) {
-                    Text("取消")
+                    Text(stringResource(R.string.common_cancel))
                 }
                 Spacer(Modifier.width(8.dp))
                 GlassButton(onClick = { viewModel.renameKey() }) {
-                    Text("确定")
+                    Text(stringResource(R.string.common_confirm))
                 }
             }
         ) {
             GlassTextField(
                 value = uiState.renameText,
                 onValueChange = { viewModel.setRenameText(it) },
-                label = "新名称",
+                label = stringResource(R.string.new_name),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -311,16 +315,12 @@ private fun KeyTextSection(
     onCopy: () -> Unit,
     backdrop: GlassBackdrop?
 ) {
-    GlassSurface(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        backdrop = backdrop,
-        emphasis = GlassEmphasis.Normal
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
             SectionTitle(title)
+            HorizontalDivider()
             Row(verticalAlignment = Alignment.Top) {
                 Text(
                     text = value,
@@ -328,10 +328,9 @@ private fun KeyTextSection(
                     style = MaterialTheme.typography.bodyMedium
                 )
                 IconButton(onClick = onCopy) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = "复制")
+                    Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.common_copy))
                 }
             }
-        }
     }
 }
 

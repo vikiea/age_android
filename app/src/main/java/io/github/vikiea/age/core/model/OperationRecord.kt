@@ -15,6 +15,12 @@ enum class OperationType {
     DECRYPT
 }
 
+enum class OperationAuthMethod { UNKNOWN, PASSPHRASE, RECIPIENT, IDENTITY }
+
+enum class CompressionState { UNKNOWN, ENABLED, DISABLED }
+
+enum class RecordedDuplicateStrategy { UNKNOWN, RENAME, OVERWRITE }
+
 @Entity(tableName = "operation_records")
 @TypeConverters(Converters::class)
 data class OperationRecord(
@@ -25,6 +31,11 @@ data class OperationRecord(
     val outputPath: String,
     val outputFiles: List<String> = emptyList(),
     val recipientInfo: String,
+    val authMethod: OperationAuthMethod = OperationAuthMethod.UNKNOWN,
+    val keyHint: String = "",
+    val compression: CompressionState = CompressionState.UNKNOWN,
+    val duplicateStrategy: RecordedDuplicateStrategy = RecordedDuplicateStrategy.UNKNOWN,
+    val concurrency: Int = 1,
     val status: OperationStatus,
     val errorMessage: String? = null,
     val timestamp: Long = System.currentTimeMillis()

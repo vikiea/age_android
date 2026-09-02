@@ -15,6 +15,7 @@ import android.provider.Settings
 import android.util.Log
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
+import io.github.vikiea.age.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -24,6 +25,7 @@ import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,7 +35,8 @@ data class ReleaseInfo(
     val versionName: String,
     val body: String,
     val apkUrl: String,
-    val apkSize: Long
+    val apkSize: Long,
+    val sha256: String = ""
 )
 
 sealed class ApkDownloadResult {
@@ -95,7 +98,7 @@ class UpdateChecker @Inject constructor(
                     Log.w("UpdateChecker", "Source failed: $apiUrl", e)
                 }
             }
-            throw lastException ?: Exception("所有更新源均不可用")
+            throw lastException ?: Exception(context.getString(R.string.update_sources_unavailable))
         }
     }
 
@@ -113,38 +116,27 @@ class UpdateChecker @Inject constructor(
         val versionName = tagName.removePrefix("v")
         val body = json.optString("body", "")
 
-        // Find arm64 APK asset
+        val supportedAbis = Build.SUPPORTED_ABIS.toList()
         val assets = json.getJSONArray("assets")
         var apkUrl = ""
         var apkSize = 0L
-        for (i in 0 until assets.length()) {
-            val asset = assets.getJSONObject(i)
-            val name = asset.getString("name")
-            if (name.contains("arm64") && name.endsWith(".apk")) {
-                apkUrl = asset.getString("browser_download_url")
-                apkSize = asset.getLong("size")
-                break
-            }
-        }
-
-        // Fallback to universal APK
-        if (apkUrl.isEmpty()) {
-            for (i in 0 until assets.length()) {
-                val asset = assets.getJSONObject(i)
-                val name = asset.getString("name")
-                if (name.contains("universal") && name.endsWith(".apk")) {
-                    apkUrl = asset.getString("browser_download_url")
-                    apkSize = asset.getLong("size")
-                    break
-                }
-            }
+        var apkSha256 = ""
+        val apkAssets = (0 until assets.length()).map { assets.getJSONObject(it) }
+            .filter { it.optString("name").endsWith(".apk") }
+        val selectedAsset = supportedAbis.firstNotNullOfOrNull { abi ->
+            apkAssets.firstOrNull { it.optString("name").contains(abi, ignoreCase = true) }
+        } ?: apkAssets.firstOrNull { it.optString("name").contains("universal", ignoreCase = true) }
+        selectedAsset?.let { asset ->
+            apkUrl = asset.getString("browser_download_url")
+            apkSize = asset.getLong("size")
+            apkSha256 = asset.optString("digest").removePrefix("sha256:").lowercase()
         }
 
         if (apkUrl.isEmpty()) return null
 
         val currentVersion = getCurrentVersion()
         return if (isNewer(versionName, currentVersion)) {
-            ReleaseInfo(tagName, versionName, body, apkUrl, apkSize)
+            ReleaseInfo(tagName, versionName, body, apkUrl, apkSize, apkSha256)
         } else {
             null
         }
@@ -173,19 +165,19 @@ class UpdateChecker @Inject constructor(
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val request = DownloadManager.Request(downloadUrl.toUri())
             .setTitle("Age Android v$versionName")
-            .setDescription("正在下载新版本...")
+            .setDescription(context.getString(R.string.update_download_description))
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "age-v$versionName.apk")
             .setMimeType("application/vnd.android.package-archive")
         return dm.enqueue(request)
     }
 
-    suspend fun awaitApkDownload(downloadId: Long, versionName: String): ApkDownloadResult =
+    suspend fun awaitApkDownload(downloadId: Long, versionName: String, expectedSha256: String): ApkDownloadResult =
         withContext(Dispatchers.IO) {
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             var result: ApkDownloadResult? = null
             while (result == null) {
-                result = queryDownload(dm, downloadId, versionName)
+                result = queryDownload(dm, downloadId, versionName, expectedSha256)
                 if (result == null) delay(1000)
             }
             result
@@ -199,34 +191,87 @@ class UpdateChecker @Inject constructor(
     private fun queryDownload(
         downloadManager: DownloadManager,
         downloadId: Long,
-        versionName: String
+        versionName: String,
+        expectedSha256: String
     ): ApkDownloadResult? {
         val query = DownloadManager.Query().setFilterById(downloadId)
-        val cursor = downloadManager.query(query) ?: return ApkDownloadResult.Failed("无法查询下载状态")
+        val cursor = downloadManager.query(query) ?: return ApkDownloadResult.Failed(context.getString(R.string.download_query_failed))
         cursor.use {
             if (!it.moveToFirst()) {
                 return if (getDownloadedApkFile(versionName).exists()) {
-                    ApkDownloadResult.Completed(getDownloadedApkFile(versionName))
+                    verifyDownloadedApk(getDownloadedApkFile(versionName), expectedSha256)
                 } else {
-                    ApkDownloadResult.Failed("下载任务不存在")
+                    ApkDownloadResult.Failed(context.getString(R.string.download_missing))
                 }
             }
 
             val statusIndex = it.getColumnIndex(DownloadManager.COLUMN_STATUS)
-            if (statusIndex < 0) return ApkDownloadResult.Failed("无法读取下载状态")
+            if (statusIndex < 0) return ApkDownloadResult.Failed(context.getString(R.string.download_status_unreadable))
 
             return when (it.getInt(statusIndex)) {
-                DownloadManager.STATUS_SUCCESSFUL -> ApkDownloadResult.Completed(
-                    resolveDownloadedApkFile(it, versionName)
+                DownloadManager.STATUS_SUCCESSFUL -> verifyDownloadedApk(
+                    resolveDownloadedApkFile(it, versionName), expectedSha256
                 )
                 DownloadManager.STATUS_FAILED -> {
                     val reasonIndex = it.getColumnIndex(DownloadManager.COLUMN_REASON)
-                    val reason = if (reasonIndex >= 0) it.getInt(reasonIndex).toString() else "未知原因"
-                    ApkDownloadResult.Failed("下载失败: $reason")
+                    val reason = if (reasonIndex >= 0) it.getInt(reasonIndex).toString() else context.getString(R.string.download_unknown_reason)
+                    ApkDownloadResult.Failed(context.getString(R.string.download_failed_reason, reason))
                 }
                 else -> null
             }
         }
+    }
+
+    private fun verifyDownloadedApk(apkFile: File, expectedSha256: String): ApkDownloadResult {
+        if (!apkFile.isFile) return ApkDownloadResult.Failed(context.getString(R.string.download_package_missing))
+        if (expectedSha256.length != 64) {
+            apkFile.delete()
+            return ApkDownloadResult.Failed(context.getString(R.string.download_digest_missing))
+        }
+        val actualSha256 = apkFile.inputStream().use { input ->
+            val digest = MessageDigest.getInstance("SHA-256")
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+            digest.digest().joinToString("") { "%02x".format(it) }
+        }
+        if (!actualSha256.equals(expectedSha256, ignoreCase = true)) {
+            apkFile.delete()
+            return ApkDownloadResult.Failed(context.getString(R.string.download_digest_mismatch))
+        }
+        if (!hasSameSigningCertificate(apkFile)) {
+            apkFile.delete()
+            return ApkDownloadResult.Failed(context.getString(R.string.download_signature_mismatch))
+        }
+        return ApkDownloadResult.Completed(apkFile)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun hasSameSigningCertificate(apkFile: File): Boolean {
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            PackageManager.GET_SIGNING_CERTIFICATES
+        } else {
+            PackageManager.GET_SIGNATURES
+        }
+        val current = context.packageManager.getPackageInfo(context.packageName, flags)
+        val archive = context.packageManager.getPackageArchiveInfo(apkFile.absolutePath, flags) ?: return false
+        fun certificates(info: android.content.pm.PackageInfo): Set<String> {
+            val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val signingInfo = info.signingInfo ?: return emptySet()
+                if (signingInfo.hasMultipleSigners()) signingInfo.apkContentsSigners
+                else signingInfo.signingCertificateHistory
+            } else {
+                info.signatures
+            }
+            return signatures.orEmpty().mapTo(mutableSetOf()) { signature ->
+                MessageDigest.getInstance("SHA-256").digest(signature.toByteArray())
+                    .joinToString("") { "%02x".format(it) }
+            }
+        }
+        return certificates(current).isNotEmpty() && certificates(current) == certificates(archive)
     }
 
     private fun resolveDownloadedApkFile(cursor: android.database.Cursor, versionName: String): File {

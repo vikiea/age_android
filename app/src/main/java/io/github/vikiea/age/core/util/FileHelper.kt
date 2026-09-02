@@ -11,6 +11,7 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
+import io.github.vikiea.age.R
 import io.github.vikiea.age.core.data.DuplicateStrategy
 import io.github.vikiea.age.core.file.FileSelectionKind
 import io.github.vikiea.age.core.file.SelectedFileItem
@@ -27,6 +28,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 data class TarEntry(val name: String, val data: ByteArray)
+class FileOperationCancelledException : IOException("operation cancelled")
 
 @Singleton
 class FileHelper @Inject constructor(
@@ -133,16 +135,26 @@ class FileHelper @Inject constructor(
         }
     }
 
-    fun copyFileToDirRelative(baseDir: File, relativePath: String, srcFile: File, strategy: DuplicateStrategy): String {
+    fun copyFileToDirRelative(baseDir: File, relativePath: String, srcFile: File, strategy: DuplicateStrategy, shouldCancel: () -> Boolean = { false }): String {
         val outFile = getOutputFileForRelativePath(baseDir, relativePath, strategy)
-        srcFile.copyTo(outFile, overwrite = true)
-        return outFile.relativeTo(baseDir).path.replace(File.separatorChar, '/')
+        try {
+            srcFile.inputStream().use { input -> outFile.outputStream().use { output -> copyCancellable(input, output, shouldCancel) } }
+            return outFile.relativeTo(baseDir).path.replace(File.separatorChar, '/')
+        } catch (error: Throwable) {
+            outFile.delete()
+            throw error
+        }
     }
 
-    fun writeStreamToDirRelative(baseDir: File, relativePath: String, input: InputStream, strategy: DuplicateStrategy): String {
+    fun writeStreamToDirRelative(baseDir: File, relativePath: String, input: InputStream, strategy: DuplicateStrategy, shouldCancel: () -> Boolean = { false }): String {
         val outFile = getOutputFileForRelativePath(baseDir, relativePath, strategy)
-        outFile.outputStream().use { output -> input.copyTo(output, bufferSize = 8192) }
-        return outFile.relativeTo(baseDir).path.replace(File.separatorChar, '/')
+        try {
+            outFile.outputStream().use { output -> copyCancellable(input, output, shouldCancel) }
+            return outFile.relativeTo(baseDir).path.replace(File.separatorChar, '/')
+        } catch (error: Throwable) {
+            outFile.delete()
+            throw error
+        }
     }
 
     private fun getOutputFileForRelativePath(baseDir: File, relativePath: String, strategy: DuplicateStrategy): File {
@@ -256,16 +268,20 @@ class FileHelper @Inject constructor(
         }
     }
 
-    fun copyFileToSafRelative(rootUri: Uri, subDirName: String, relativePath: String, srcFile: File, strategy: DuplicateStrategy): String? {
+    fun copyFileToSafRelative(rootUri: Uri, subDirName: String, relativePath: String, srcFile: File, strategy: DuplicateStrategy, shouldCancel: () -> Boolean = { false }): String? {
+        var createdFile: DocumentFile? = null
         return try {
             val target = getSafOutputTarget(rootUri, subDirName, relativePath, strategy) ?: return null
             target.parent.findFile(target.fileName)?.delete()
             val file = target.parent.createFile("application/octet-stream", target.fileName) ?: return null
+            createdFile = file
             context.contentResolver.openOutputStream(file.uri)?.use { out ->
-                srcFile.inputStream().use { input -> input.copyTo(out) }
+                srcFile.inputStream().use { input -> copyCancellable(input, out, shouldCancel) }
             }
             target.relativePath
         } catch (e: Exception) {
+            createdFile?.delete()
+            if (e is FileOperationCancelledException) throw e
             null
         }
     }
@@ -297,16 +313,20 @@ class FileHelper @Inject constructor(
         }
     }
 
-    fun writeStreamToSafRelative(rootUri: Uri, subDirName: String, relativePath: String, input: InputStream, strategy: DuplicateStrategy): String? {
+    fun writeStreamToSafRelative(rootUri: Uri, subDirName: String, relativePath: String, input: InputStream, strategy: DuplicateStrategy, shouldCancel: () -> Boolean = { false }): String? {
+        var createdFile: DocumentFile? = null
         return try {
             val target = getSafOutputTarget(rootUri, subDirName, relativePath, strategy) ?: return null
             target.parent.findFile(target.fileName)?.delete()
             val file = target.parent.createFile("application/octet-stream", target.fileName) ?: return null
+            createdFile = file
             context.contentResolver.openOutputStream(file.uri)?.use { output ->
-                input.copyTo(output, bufferSize = 8192)
+                copyCancellable(input, output, shouldCancel)
             }
             target.relativePath
         } catch (e: Exception) {
+            createdFile?.delete()
+            if (e is FileOperationCancelledException) throw e
             null
         }
     }
@@ -436,7 +456,7 @@ class FileHelper @Inject constructor(
 
     private fun copyUriToStream(uri: Uri, output: OutputStream) {
         val pfd = context.contentResolver.openFileDescriptor(uri, "r")
-            ?: throw Exception("无法打开文件")
+            ?: throw Exception(context.getString(R.string.error_read_file))
         pfd.use { descriptor ->
             FileInputStream(descriptor.fileDescriptor).use { input ->
                 input.copyTo(output, bufferSize = 8192)
@@ -455,16 +475,21 @@ class FileHelper @Inject constructor(
     /**
      * Stream a URI's content to a temp file without loading into memory.
      */
-    fun streamUriToTemp(uri: Uri, prefix: String): File {
+    fun streamUriToTemp(uri: Uri, prefix: String, shouldCancel: () -> Boolean = { false }): File {
         val tempFile = File(getCacheDir(), "${prefix}_${System.currentTimeMillis()}.tmp")
-        val pfd = context.contentResolver.openFileDescriptor(uri, "r")
-            ?: throw Exception("无法打开文件")
-        pfd.use { descriptor ->
-            FileInputStream(descriptor.fileDescriptor).use { input ->
-                tempFile.outputStream().use { output -> input.copyTo(output, bufferSize = 8192) }
+        try {
+            val pfd = context.contentResolver.openFileDescriptor(uri, "r")
+                ?: throw Exception(context.getString(R.string.error_read_file))
+            pfd.use { descriptor ->
+                FileInputStream(descriptor.fileDescriptor).use { input ->
+                    tempFile.outputStream().use { output -> copyCancellable(input, output, shouldCancel) }
+                }
             }
+            return tempFile
+        } catch (error: Throwable) {
+            tempFile.delete()
+            throw error
         }
-        return tempFile
     }
 
     /**
@@ -504,12 +529,17 @@ class FileHelper @Inject constructor(
         return GZIPInputStream(BufferedInputStream(FileInputStream(tempFile))).use { it.readBytes() }
     }
 
-    fun gunzipToTemp(srcFile: File): File {
+    fun gunzipToTemp(srcFile: File, shouldCancel: () -> Boolean = { false }): File {
         val tempFile = File(getCacheDir(), "gunzip_${System.currentTimeMillis()}.tmp")
-        GZIPInputStream(BufferedInputStream(FileInputStream(srcFile))).use { input ->
-            tempFile.outputStream().use { output -> input.copyTo(output, bufferSize = 8192) }
+        try {
+            GZIPInputStream(BufferedInputStream(FileInputStream(srcFile))).use { input ->
+                tempFile.outputStream().use { output -> copyCancellable(input, output, shouldCancel) }
+            }
+            return tempFile
+        } catch (error: Throwable) {
+            tempFile.delete()
+            throw error
         }
-        return tempFile
     }
 
     /**
@@ -531,10 +561,11 @@ class FileHelper @Inject constructor(
         return results
     }
 
-    fun untarGzipStreaming(tempFile: File, onEntry: (String, InputStream, Long) -> Unit) {
+    fun untarGzipStreaming(tempFile: File, shouldCancel: () -> Boolean = { false }, onEntry: (String, InputStream, Long) -> Unit) {
         TarArchiveInputStream(GZIPInputStream(BufferedInputStream(FileInputStream(tempFile)))).use { tar ->
             var entry = tar.nextTarEntry()
             while (entry != null) {
+                if (shouldCancel()) throw FileOperationCancelledException()
                 if (!entry.isDirectory) {
                     onEntry(entry.name, tar, entry.size)
                 }
@@ -543,10 +574,11 @@ class FileHelper @Inject constructor(
         }
     }
 
-    fun untarStreaming(tempFile: File, onEntry: (String, InputStream, Long) -> Unit) {
+    fun untarStreaming(tempFile: File, shouldCancel: () -> Boolean = { false }, onEntry: (String, InputStream, Long) -> Unit) {
         TarArchiveInputStream(BufferedInputStream(FileInputStream(tempFile))).use { tar ->
             var entry = tar.nextTarEntry()
             while (entry != null) {
+                if (shouldCancel()) throw FileOperationCancelledException()
                 if (!entry.isDirectory) {
                     onEntry(entry.name, tar, entry.size)
                 }
@@ -569,6 +601,17 @@ class FileHelper @Inject constructor(
         try { tempFile.delete() } catch (_: Exception) {}
     }
 
+    private fun copyCancellable(input: InputStream, output: OutputStream, shouldCancel: () -> Boolean) {
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        while (true) {
+            if (shouldCancel()) throw FileOperationCancelledException()
+            val count = input.read(buffer)
+            if (count < 0) break
+            output.write(buffer, 0, count)
+        }
+        if (shouldCancel()) throw FileOperationCancelledException()
+    }
+
     fun shareFile(file: File) {
         try {
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -578,7 +621,7 @@ class FileHelper @Inject constructor(
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            context.startActivity(Intent.createChooser(intent, "发送文件").apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+            context.startActivity(Intent.createChooser(intent, context.getString(R.string.share_files)).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
         } catch (_: Exception) {}
     }
 
@@ -591,7 +634,7 @@ class FileHelper @Inject constructor(
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            context.startActivity(Intent.createChooser(intent, "发送文件夹").apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+            context.startActivity(Intent.createChooser(intent, context.getString(R.string.share_folder)).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
         } catch (_: Exception) {}
     }
 
@@ -620,7 +663,7 @@ class FileHelper @Inject constructor(
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            context.startActivity(Intent.createChooser(intent, "发送文件").apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+            context.startActivity(Intent.createChooser(intent, context.getString(R.string.share_files)).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
         } catch (_: Exception) {}
     }
 

@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -35,21 +36,28 @@ enum class ThemeMode {
     }
 }
 
-enum class ThemeAccent(
-    val label: String,
-    val description: String,
-    val liquidGlass: Boolean
-) {
-    LIQUID_DEFAULT("默认", "Liquid Glass 绿青", true),
-    LIQUID_AURORA("极光", "Liquid Glass 蓝紫", true),
-    LIQUID_SUNRISE("晨光", "Liquid Glass 橙粉", true),
-    LIQUID_OCEAN("海洋", "Liquid Glass 蓝绿", true),
-    LIQUID_GRAPE("葡萄", "Liquid Glass 紫红", true),
-    SOLID_GREEN("绿色", "纯色外观: 白/黑底，绿色强调色", false),
-    SOLID_BLUE("蓝色", "纯色外观: 白/黑底，蓝色强调色", false),
-    SOLID_RED("红色", "纯色外观: 白/黑底，红色强调色", false),
-    SOLID_PURPLE("紫色", "纯色外观: 白/黑底，紫色强调色", false),
-    SOLID_ORANGE("橙色", "纯色外观: 白/黑底，橙色强调色", false);
+enum class AppLanguage {
+    SYSTEM,
+    ZH_CN,
+    ENGLISH;
+
+    companion object {
+        fun fromStoredName(value: String?): AppLanguage =
+            entries.firstOrNull { it.name == value } ?: SYSTEM
+    }
+}
+
+enum class ThemeAccent(val liquidGlass: Boolean) {
+    LIQUID_DEFAULT(true),
+    LIQUID_AURORA(true),
+    LIQUID_SUNRISE(true),
+    LIQUID_OCEAN(true),
+    LIQUID_GRAPE(true),
+    SOLID_GREEN(false),
+    SOLID_BLUE(false),
+    SOLID_RED(false),
+    SOLID_PURPLE(false),
+    SOLID_ORANGE(false);
 
     companion object {
         fun fromStoredName(value: String?): ThemeAccent =
@@ -68,11 +76,14 @@ class SettingsDataStore @Inject constructor(
     private val decryptUsePassphraseKey = stringPreferencesKey("decrypt_use_passphrase")
     private val selectedPublicKeyKey = stringPreferencesKey("selected_public_key")
     private val selectedPrivateKeyKey = stringPreferencesKey("selected_private_key")
+    private val selectedPrivateKeyIdKey = longPreferencesKey("selected_private_key_id")
     private val compressEnabledKey = booleanPreferencesKey("compress_enabled")
     private val concurrencyKey = intPreferencesKey("concurrency")
     private val themeModeKey = stringPreferencesKey("theme_mode")
     private val themeAccentKey = stringPreferencesKey("theme_accent")
     private val glassEffectEnabledKey = booleanPreferencesKey("glass_effect_enabled")
+    private val dynamicColorEnabledKey = booleanPreferencesKey("dynamic_color_enabled")
+    private val appLanguageKey = stringPreferencesKey("app_language")
 
     @Volatile
     private var cachedOutputDirUri: String? = null
@@ -115,6 +126,14 @@ class SettingsDataStore @Inject constructor(
 
     val glassEffectEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[glassEffectEnabledKey] != false
+    }
+
+    val dynamicColorEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[dynamicColorEnabledKey] == true
+    }
+
+    val appLanguage: Flow<AppLanguage> = context.dataStore.data.map { preferences ->
+        AppLanguage.fromStoredName(preferences[appLanguageKey])
     }
 
     suspend fun setOutputDirUri(uri: String?) {
@@ -181,15 +200,17 @@ class SettingsDataStore @Inject constructor(
         }
     }
 
-    suspend fun getSelectedPrivateKeyOnce(): String {
-        return context.dataStore.data.map { preferences ->
-            preferences[selectedPrivateKeyKey] ?: ""
-        }.first()
+    suspend fun getSelectedPrivateKeyIdOnce(): Long? {
+        val value = context.dataStore.data.map { it[selectedPrivateKeyIdKey] }.first()
+        context.dataStore.edit { it.remove(selectedPrivateKeyKey) }
+        return value
     }
 
-    suspend fun setSelectedPrivateKey(value: String) {
+    suspend fun setSelectedPrivateKeyId(value: Long?) {
         context.dataStore.edit { preferences ->
-            preferences[selectedPrivateKeyKey] = value
+            preferences.remove(selectedPrivateKeyKey)
+            if (value == null) preferences.remove(selectedPrivateKeyIdKey)
+            else preferences[selectedPrivateKeyIdKey] = value
         }
     }
 
@@ -241,5 +262,13 @@ class SettingsDataStore @Inject constructor(
         context.dataStore.edit { preferences ->
             preferences[glassEffectEnabledKey] = value
         }
+    }
+
+    suspend fun setDynamicColorEnabled(value: Boolean) {
+        context.dataStore.edit { preferences -> preferences[dynamicColorEnabledKey] = value }
+    }
+
+    suspend fun setAppLanguage(value: AppLanguage) {
+        context.dataStore.edit { preferences -> preferences[appLanguageKey] = value.name }
     }
 }

@@ -8,5 +8,6 @@ package io.github.vikiea.age.core.model
 enum class OperationStatus {
     RUNNING,
     SUCCESS,
-    FAILED
+    FAILED,
+    CANCELLED
 }

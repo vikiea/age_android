@@ -11,7 +11,10 @@ import io.github.vikiea.age.core.data.AppDatabase
 import io.github.vikiea.age.core.data.KeyDao
 import io.github.vikiea.age.core.data.MIGRATION_1_2
 import io.github.vikiea.age.core.data.MIGRATION_2_3
+import io.github.vikiea.age.core.data.migration3To4
 import io.github.vikiea.age.core.data.OperationDao
+import io.github.vikiea.age.core.security.AndroidPrivateKeyStore
+import io.github.vikiea.age.core.security.PrivateKeyStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -24,9 +27,17 @@ import javax.inject.Singleton
 object DatabaseModule {
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
+    fun providePrivateKeyStore(@ApplicationContext context: Context): PrivateKeyStore =
+        AndroidPrivateKeyStore(context)
+
+    @Provides
+    @Singleton
+    fun provideDatabase(
+        @ApplicationContext context: Context,
+        privateKeyStore: PrivateKeyStore
+    ): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "age_android.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, migration3To4(privateKeyStore))
             .build()
 
     @Provides

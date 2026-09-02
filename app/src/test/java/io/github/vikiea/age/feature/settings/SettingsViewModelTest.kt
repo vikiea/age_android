@@ -5,6 +5,7 @@ import io.github.vikiea.age.core.data.DuplicateStrategy
 import io.github.vikiea.age.core.data.SettingsDataStore
 import io.github.vikiea.age.core.data.ThemeAccent
 import io.github.vikiea.age.core.data.ThemeMode
+import io.github.vikiea.age.core.data.AppLanguage
 import io.github.vikiea.age.core.update.ApkDownloadResult
 import io.github.vikiea.age.core.update.ReleaseInfo
 import io.github.vikiea.age.core.update.UpdateChecker
@@ -49,6 +50,8 @@ class SettingsViewModelTest {
             every { themeMode } returns flowOf(ThemeMode.SYSTEM)
             every { themeAccent } returns flowOf(ThemeAccent.LIQUID_DEFAULT)
             every { glassEffectEnabled } returns flowOf(true)
+            every { dynamicColorEnabled } returns flowOf(false)
+            every { appLanguage } returns flowOf(AppLanguage.SYSTEM)
             coEvery { setThemeAccent(any()) } just runs
             coEvery { setGlassEffectEnabled(any()) } just runs
         }
@@ -80,7 +83,7 @@ class SettingsViewModelTest {
         apkFile.writeText("apk")
         coEvery { updateChecker.checkForUpdate() } returns Result.success(release)
         every { updateChecker.downloadApk(release.apkUrl, release.versionName) } returns 42L
-        coEvery { updateChecker.awaitApkDownload(42L, release.versionName) } returns ApkDownloadResult.Completed(apkFile)
+        coEvery { updateChecker.awaitApkDownload(42L, release.versionName, release.sha256) } returns ApkDownloadResult.Completed(apkFile)
         every { updateChecker.installApk(apkFile) } just runs
 
         viewModel.checkForUpdate()
@@ -93,7 +96,7 @@ class SettingsViewModelTest {
 
         assertFalse(viewModel.updateState.value.isDownloading)
         assertEquals(apkFile.absolutePath, viewModel.updateState.value.downloadedApkPath)
-        coVerify { updateChecker.awaitApkDownload(42L, release.versionName) }
+        coVerify { updateChecker.awaitApkDownload(42L, release.versionName, release.sha256) }
         coVerify { updateChecker.installApk(apkFile) }
     }
 
@@ -111,7 +114,7 @@ class SettingsViewModelTest {
         apkFile.writeText("apk")
         coEvery { updateChecker.checkForUpdate() } returns Result.success(release)
         every { updateChecker.downloadApk(release.apkUrl, release.versionName) } returns 42L
-        coEvery { updateChecker.awaitApkDownload(42L, release.versionName) } returns ApkDownloadResult.Completed(apkFile)
+        coEvery { updateChecker.awaitApkDownload(42L, release.versionName, release.sha256) } returns ApkDownloadResult.Completed(apkFile)
         every { updateChecker.installApk(apkFile) } just runs
 
         viewModel.checkForUpdate()
@@ -139,7 +142,7 @@ class SettingsViewModelTest {
         apkFile.writeText("apk")
         coEvery { updateChecker.checkForUpdate() } returns Result.success(release)
         every { updateChecker.downloadApk(release.apkUrl, release.versionName) } returns 42L
-        coEvery { updateChecker.awaitApkDownload(42L, release.versionName) } returns ApkDownloadResult.Completed(apkFile)
+        coEvery { updateChecker.awaitApkDownload(42L, release.versionName, release.sha256) } returns ApkDownloadResult.Completed(apkFile)
         every { updateChecker.canInstallDownloadedApks() } returns false
         every { updateChecker.installApk(apkFile) } just runs
 
@@ -169,7 +172,7 @@ class SettingsViewModelTest {
         var canInstall = false
         coEvery { updateChecker.checkForUpdate() } returns Result.success(release)
         every { updateChecker.downloadApk(release.apkUrl, release.versionName) } returns 42L
-        coEvery { updateChecker.awaitApkDownload(42L, release.versionName) } returns ApkDownloadResult.Completed(apkFile)
+        coEvery { updateChecker.awaitApkDownload(42L, release.versionName, release.sha256) } returns ApkDownloadResult.Completed(apkFile)
         every { updateChecker.canInstallDownloadedApks() } answers { canInstall }
         every { updateChecker.openInstallPermissionSettings() } just runs
         every { updateChecker.installApk(apkFile) } just runs
