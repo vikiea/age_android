@@ -52,7 +52,7 @@ Android native app wrapping the [age](https://filippo.io/age) encryption tool wi
 
 | Layer | Technology |
 |-------|-----------|
-| App version | 5.0.0 (`versionCode` 15) |
+| App version | 5.0.1 (`versionCode` 16) |
 | Language | Kotlin 2.4.10, Go 1.25 |
 | Android | compileSdk 37, minSdk 26, targetSdk 36 |
 | UI | Jetpack Compose BOM 2026.08.00, Material 3 1.4.0, Backdrop 2.0.1 |

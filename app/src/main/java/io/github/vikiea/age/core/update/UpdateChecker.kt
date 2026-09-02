@@ -25,6 +25,7 @@ import okhttp3.Request
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -108,10 +109,12 @@ class UpdateChecker @Inject constructor(
             .header("Accept", "application/vnd.github.v3+json")
             .build()
 
-        val response = client.newCall(request).execute()
-        if (!response.isSuccessful) return null
-
-        val json = JSONObject(response.body?.string() ?: return null)
+        val json = client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IOException("Update source returned HTTP ${response.code}")
+            }
+            JSONObject(response.body?.string() ?: throw IOException("Update source returned an empty response"))
+        }
         val tagName = json.getString("tag_name") // e.g. "v1.0.0"
         val versionName = tagName.removePrefix("v")
         val body = json.optString("body", "")
