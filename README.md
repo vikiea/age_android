@@ -16,7 +16,7 @@ Android native app wrapping the [age](https://filippo.io/age) encryption tool wi
 - **Protected sensitive actions**: Revealing, copying, or exporting a private key requires strong biometrics or device credentials
 - **Cancellable work**: Tar, gzip, encryption, decryption, SAF copies, and output writes can be cancelled with partial-output cleanup
 - **Bilingual UI**: Follow the system language or choose English / Simplified Chinese in Settings
-- **Adaptive Material 3 UI**: Bottom navigation on phones, navigation rail on wider windows, dynamic color, and restrained Backdrop glass for navigation and overlays
+- **Adaptive Material 3 UI**: Frosted Backdrop surfaces on phones, navigation rail on wider windows, fixed theme accents, and opaque content transitions
 - **Detailed history**: Track authentication type, safe key hints, compression, duplicate policy, concurrency, success/failure, and cancellation
 - **Verified updates**: Select an ABI APK with Universal fallback, verify its GitHub SHA-256 digest and signing certificate, then hand off to Android's installer
 
@@ -52,7 +52,7 @@ Android native app wrapping the [age](https://filippo.io/age) encryption tool wi
 
 | Layer | Technology |
 |-------|-----------|
-| App version | 5.0.1 (`versionCode` 16) |
+| App version | 5.0.2 (`versionCode` 17) |
 | Language | Kotlin 2.4.10, Go 1.25 |
 | Android | compileSdk 37, minSdk 26, targetSdk 36 |
 | UI | Jetpack Compose BOM 2026.08.00, Material 3 1.4.0, Backdrop 2.0.1 |
